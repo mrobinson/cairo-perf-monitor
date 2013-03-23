@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import multiprocessing
 import os
 import pygit2
 import subprocess
@@ -29,6 +30,18 @@ class CairoRepository(pygit2.Repository):
             print(stdout)
             print(stderr)
             sys.exit()
+
+    def build(self):
+        if not os.path.exists(os.path.join(self.repository_path, "config.log")):
+            print("Need to run configure before using this tool")
+            sys.exit()
+
+        process = subprocess.Popen(['make', '-j{0}'.format(multiprocessing.cpu_count())],
+                                   cwd=self.repository_path,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (stdout, stderr) = process.communicate()
+        status = process.wait()
+        return not status
 
     def walk_back(self, number_of_commits, branch='master'):
         self.checkout('master')
@@ -81,4 +94,8 @@ if __name__ == "__main__":
 
     commits = repository.walk_back(5)
     for commit in commits:
+        print('Building {0}'.format(commit))
+        if not repository.build():
+            print([commit, 0, 0])
+        print('Running trace for {0}'.format(commit))
         print([commit] + repository.run_trace('image', 'benchmark/gvim.trace'))
