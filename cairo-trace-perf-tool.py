@@ -19,6 +19,28 @@ class CairoRepository(pygit2.Repository):
                 return False
         return True
 
+    def checkout(self, arg='master'):
+        process = subprocess.Popen(['git', 'checkout', arg], cwd=self.repository_path,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        (stdout, stderr) = process.communicate()
+        status = process.wait()
+        if status:
+            print("Could not checkout {0}".format(arg))
+            print(stdout)
+            print(stderr)
+            sys.exit()
+
+    def walk_back(self, number_of_commits, branch='master'):
+        self.checkout('master')
+
+        try:
+            while number_of_commits > 0:
+                yield self.head.hex
+                number_of_commits = number_of_commits - 1
+                self.checkout('HEAD~')
+        finally:
+            self.checkout('master')
+
     def perf_trace_path(self):
         return os.path.join(self.repository_path, "perf", "cairo-perf-trace")
 
@@ -57,4 +79,6 @@ if __name__ == "__main__":
         print("Repository does not have a clean working tree.")
         sys.exit(1)
 
-    print(repository.run_trace('image', 'benchmark/gvim.trace'))
+    commits = repository.walk_back(5)
+    for commit in commits:
+        print([commit] + repository.run_trace('image', 'benchmark/gvim.trace'))
