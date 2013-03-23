@@ -1,12 +1,23 @@
 #!/usr/bin/env python3
 
 import os
+import pygit2
 import subprocess
 import sys
 
-class CairoRepository(object):
+class CairoRepository(pygit2.Repository):
     def __init__(self, repository_path):
+        super().__init__(repository_path)
         self.repository_path = repository_path
+
+    def working_tree_clean(self):
+        status = self.status()
+        for filepath, flags in status.items():
+            if flags != pygit2.GIT_STATUS_CURRENT and \
+               flags != pygit2.GIT_STATUS_WT_NEW and \
+               flags != pygit2.GIT_STATUS_IGNORED:
+                return False
+        return True
 
     def perf_trace_path(self):
         return os.path.join(self.repository_path, "perf", "cairo-perf-trace")
@@ -41,4 +52,9 @@ if __name__ == "__main__":
         sys.exit(1)
 
     repository = CairoRepository(sys.argv[1])
+
+    if not(repository.working_tree_clean()):
+        print("Repository does not have a clean working tree.")
+        sys.exit(1)
+
     print(repository.run_trace('image', 'benchmark/gvim.trace'))
