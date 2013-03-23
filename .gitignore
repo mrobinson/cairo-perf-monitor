@@ -1,0 +1,9 @@
+*.mode*
+*.pbxuser
+*.pyc
+.DS_Store
+.directory
+.gdb_history
+tags
+*~
+.*.sw[a-p]
