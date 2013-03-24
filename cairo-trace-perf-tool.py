@@ -54,11 +54,46 @@ class CairoRepository(pygit2.Repository):
         finally:
             self.checkout('master')
 
-    def perf_trace_path(self):
-        return os.path.join(self.repository_path, "perf", "cairo-perf-trace")
+class PerfTraceRunner(pygit2.Repository):
+    def __init__(self, repository, ):
+        self.repository = repository
 
-    def trace_path(self, path):
-        return os.path.join(self.repository_path, "perf", "cairo-traces", path)
+        env = os.environ
+        if not 'CAIRO_TRACE_DIR' in env:
+            env['CAIRO_TRACE_DIR'] = os.path.join(self.repository.repository_path, "perf", "cairo-traces")
+
+    def run(self, backend, trace, number_of_commits):
+        if not(self.repository.working_tree_clean()):
+            raise Exception("Repository does not have a clean working tree.")
+
+        print('Running trace {0} for {1} commits'.format(trace, number_of_commits))
+        commits = self.repository.walk_back(number_of_commits)
+        for commit in commits:
+            print('Testing {0} ({1} left)'.format(commit, number_of_commits))
+
+            print('    Building...')
+            if not self.repository.build():
+                print('    Failed to build, skipping!')
+                print([commit, 0, 0])
+                continue
+
+            print('    Running trace...')
+            results = self.run_trace(backend, trace)
+            print([commit] + results)
+            number_of_commits = number_of_commits - 1
+
+    def perf_trace_path(self):
+        return os.path.join(self.repository.repository_path, "perf", "cairo-perf-trace")
+
+    def run_perf_tool(self, backend, trace):
+        env = os.environ.copy()
+        env['CAIRO_TEST_TARGET'] = backend
+
+        process = subprocess.Popen([self.perf_trace_path(), '-r', trace],
+                                    stdout=subprocess.PIPE, env=env)
+        (stdout, stderr) = process.communicate()
+        process.wait()
+        return str(stdout, encoding='utf8')
 
     def run_trace(self, backend, trace):
         return self.parse_perf_tool_output(self.run_perf_tool(backend, trace))
@@ -71,31 +106,11 @@ class CairoRepository(pygit2.Repository):
             return line.split(' ')[3:]
         return []
 
-    def run_perf_tool(self, backend, trace):
-        env = os.environ.copy()
-        env['CAIRO_TEST_TARGET'] = backend
-
-        process = subprocess.Popen([self.perf_trace_path(), '-r', self.trace_path(trace)],
-                                    stdout=subprocess.PIPE, env=env)
-        (stdout, stderr) = process.communicate()
-        process.wait()
-        return str(stdout, encoding='utf8')
-
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Need to provide the path to the Cairo repository")
+        print('Need to provide the path to the Cairo repository')
         sys.exit(1)
 
-    repository = CairoRepository(sys.argv[1])
+    runner = PerfTraceRunner(CairoRepository(sys.argv[1]))
+    runner.run('image', 'benchmark/gvim.trace', 2)
 
-    if not(repository.working_tree_clean()):
-        print("Repository does not have a clean working tree.")
-        sys.exit(1)
-
-    commits = repository.walk_back(5)
-    for commit in commits:
-        print('Building {0}'.format(commit))
-        if not repository.build():
-            print([commit, 0, 0])
-        print('Running trace for {0}'.format(commit))
-        print([commit] + repository.run_trace('image', 'benchmark/gvim.trace'))
