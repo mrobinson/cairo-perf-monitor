@@ -74,7 +74,7 @@ class PerfTraceRunner(pygit2.Repository):
             try:
                 return json.dump(results, results_file, indent=1)
             except:
-                return {}
+                return []
 
     def run(self, backend, trace, number_of_commits):
         if not(self.repository.working_tree_clean()):
@@ -86,17 +86,21 @@ class PerfTraceRunner(pygit2.Repository):
         results = self.read_trace_results(path)
         commits = self.repository.walk_back(number_of_commits)
         for commit in commits:
+            new_result = {'commit': commit }
             print('Testing {0} ({1} left)'.format(commit, number_of_commits))
 
             print('    Building...')
             if not self.repository.build():
-                print('    Failed to build, skipping!')
-                results[commit] = []
+                print('    Failed to build commit, skipping!')
             else:
                 print('    Running trace...')
-                results[commit] = self.parse_perf_tool_output(self.run_perf_tool(backend, trace))
+                (normalization, results) = self.parse_perf_tool_output(self.run_perf_tool(backend, trace))
+                new_result['normalization'] = normalization
+                new_result['results'] = results
+
 
             print('    Writing results...')
+            results.append(new_result)
             self.write_trace_results(path, results)
             number_of_commits = number_of_commits - 1
 
@@ -118,8 +122,9 @@ class PerfTraceRunner(pygit2.Repository):
         for line in output.splitlines():
             if not line.startswith('[*]'):
                continue
-            return [float(x) for x in line.split(' ')[3:]]
-        return []
+            parts = line.split(' ')
+            return (float(parts[3]), [float(x) for x in parts[4:]])
+        return (0, 0)
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
