@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import multiprocessing
 import os
 import pygit2
@@ -55,18 +56,34 @@ class CairoRepository(pygit2.Repository):
             self.checkout('master')
 
 class PerfTraceRunner(pygit2.Repository):
-    def __init__(self, repository, ):
+    def __init__(self, repository):
         self.repository = repository
 
-        env = os.environ
-        if not 'CAIRO_TRACE_DIR' in env:
-            env['CAIRO_TRACE_DIR'] = os.path.join(self.repository.repository_path, "perf", "cairo-traces")
+    def trace_results_path(self, backend, trace):
+        trace_name = os.path.basename(trace).replace('.trace', '')
+        return '{0}-{1}.json'.format(trace_name, backend)
+
+    def read_trace_results(self, path):
+        if not os.path.exists(path):
+            return {}
+        with open(path) as results_file:
+            return json.load(results_file)
+
+    def write_trace_results(self, path, results):
+        with open(path, 'w') as results_file:
+            try:
+                return json.dump(results, results_file, indent=1)
+            except:
+                return {}
 
     def run(self, backend, trace, number_of_commits):
         if not(self.repository.working_tree_clean()):
             raise Exception("Repository does not have a clean working tree.")
 
-        print('Running trace {0} for {1} commits'.format(trace, number_of_commits))
+        path = self.trace_results_path(backend, trace)
+        print('Running trace {0} for {1} commits and updating results in {2}'.format(trace, number_of_commits, path))
+
+        results = self.read_trace_results(path)
         commits = self.repository.walk_back(number_of_commits)
         for commit in commits:
             print('Testing {0} ({1} left)'.format(commit, number_of_commits))
@@ -74,12 +91,13 @@ class PerfTraceRunner(pygit2.Repository):
             print('    Building...')
             if not self.repository.build():
                 print('    Failed to build, skipping!')
-                print([commit, 0, 0])
-                continue
+                results[commit] = []
+            else:
+                print('    Running trace...')
+                results[commit] = self.parse_perf_tool_output(self.run_perf_tool(backend, trace))
 
-            print('    Running trace...')
-            results = self.run_trace(backend, trace)
-            print([commit] + results)
+            print('    Writing results...')
+            self.write_trace_results(path, results)
             number_of_commits = number_of_commits - 1
 
     def perf_trace_path(self):
@@ -95,22 +113,19 @@ class PerfTraceRunner(pygit2.Repository):
         process.wait()
         return str(stdout, encoding='utf8')
 
-    def run_trace(self, backend, trace):
-        return self.parse_perf_tool_output(self.run_perf_tool(backend, trace))
-
     @staticmethod
     def parse_perf_tool_output(output):
         for line in output.splitlines():
             if not line.startswith('[*]'):
                continue
-            return line.split(' ')[3:]
+            return [float(x) for x in line.split(' ')[3:]]
         return []
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         print('Need to provide the path to the Cairo repository')
         sys.exit(1)
 
     runner = PerfTraceRunner(CairoRepository(sys.argv[1]))
-    runner.run('image', 'benchmark/gvim.trace', 2)
+    runner.run('image', sys.argv[2], 2)
 
