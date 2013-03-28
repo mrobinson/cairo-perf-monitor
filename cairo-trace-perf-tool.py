@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 PERFORMANCE_RESULTS_PATH = "performance-results.db"
+DEFAULT_CAIRO_PATH = "../cairo"
 
 class CairoRepository(pygit2.Repository):
     def __init__(self, repository_path):
@@ -47,16 +48,21 @@ class CairoRepository(pygit2.Repository):
         status = process.wait()
         return not status
 
-    def walk_back(self, number_of_commits, branch='master'):
-        self.checkout('master')
+    def walk_commit_range(self, commit_range, branch='master'):
+        self.checkout(branch)
 
+        process = subprocess.Popen(['git', 'log', '--pretty=oneline', commit_range],
+                                   cwd=self.repository_path, stdout=subprocess.PIPE)
+        (stdout, stderr) = process.communicate()
+        process.wait()
+
+        hashes = [line.split(' ')[0] for line in stdout.decode().strip().splitlines()]
         try:
-            while number_of_commits > 0:
-                yield self.head.hex
-                number_of_commits = number_of_commits - 1
-                self.checkout('HEAD~')
+            for commit_hash in hashes:
+                self.checkout(commit_hash)
+                yield commit_hash
         finally:
-            self.checkout('master')
+            self.checkout(branch)
 
 class PerfTraceRun(pygit2.Repository):
     def __init__(self, repository, database, backend, trace):
@@ -109,7 +115,7 @@ class PerfTraceRun(pygit2.Repository):
             raise Exception("Repository does not have a clean working tree.")
 
         print('Running trace {0} for {1} commits'.format(self.trace, number_of_commits))
-        commits = self.repository.walk_back(number_of_commits)
+        commits = self.repository.walk_commit_range("HEAD~{0}..".format(number_of_commits))
         for commit in commits:
             print('Testing {0} ({1} left)'.format(commit, number_of_commits))
             self.run_for_commit(commit)
@@ -141,11 +147,11 @@ class PerfTraceRun(pygit2.Repository):
         return (0, 0)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print('Need to provide the path to the Cairo repository')
+    if len(sys.argv) < 2:
+        print('Need to provide the path to the Cairo trace')
         sys.exit(1)
 
     database = leveldb.LevelDB(PERFORMANCE_RESULTS_PATH)
-    runner = PerfTraceRun(CairoRepository(sys.argv[1]), database, 'image', sys.argv[2])
+    runner = PerfTraceRun(CairoRepository(DEFAULT_CAIRO_PATH), database, 'image', sys.argv[1])
     runner.run(4)
 
