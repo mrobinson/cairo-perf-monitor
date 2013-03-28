@@ -58,31 +58,33 @@ class CairoRepository(pygit2.Repository):
         finally:
             self.checkout('master')
 
-class PerfTraceRunner(pygit2.Repository):
-    def __init__(self, repository, database):
+class PerfTraceRun(pygit2.Repository):
+    def __init__(self, repository, database, backend, trace):
         self.repository = repository
         self.database = database
+        self.backend = backend
+        self.trace = trace
 
-    def trace_results_key(self, backend, trace, commit):
-        trace_name = os.path.basename(trace).replace('.trace', '')
-        return '{0}-{1}-{2}'.format(trace_name, backend, commit).encode()
+    def trace_results_key(self, commit):
+        trace_name = os.path.basename(self.trace).replace('.trace', '')
+        return '{0}-{1}-{2}'.format(trace_name, self.backend, commit).encode()
 
-    def has_trace_result(self, backend, trace, commit):
+    def has_trace_result(self, commit):
         try:
-            self.database.Get(self.trace_results_key(backend, trace, commit))
+            self.database.Get(self.trace_results_key(commit))
             return True
         except:
             return False
 
-    def write_trace_result(self, backend, trace, commit, result):
+    def write_trace_result(self, commit, result):
         try:
             pickled_result = pickle.dumps(result)
-            self.database.Put(self.trace_results_key(backend, trace, commit), pickled_result)
+            self.database.Put(self.trace_results_key(commit), pickled_result)
         except Exception as e:
             print('Couldn\'t write {0} results to database: {1}'.format(commit, e))
 
-    def run_for_commit(self, backend, trace, commit):
-        if self.has_trace_result(backend, trace, commit):
+    def run_for_commit(self, commit):
+        if self.has_trace_result(commit):
             print('    Have results in database for {0}, skipping'.format(commit))
             return
 
@@ -94,36 +96,36 @@ class PerfTraceRunner(pygit2.Repository):
             print('    Failed to build commit, skipping!')
         else:
             print('    Running trace...')
-            (normalization, results) = self.parse_perf_tool_output(self.run_perf_tool(backend, trace))
+            (normalization, results) = self.parse_perf_tool_output(self.run_perf_tool())
             new_result['normalization'] = normalization
             new_result['results'] = results
 
 
         print('    Writing results...')
-        self.write_trace_result(backend, trace, commit, new_result)
+        self.write_trace_result(commit, new_result)
 
-    def run(self, backend, trace, number_of_commits):
+    def run(self, number_of_commits):
         if not(self.repository.working_tree_clean()):
             raise Exception("Repository does not have a clean working tree.")
 
-        print('Running trace {0} for {1} commits'.format(trace, number_of_commits))
+        print('Running trace {0} for {1} commits'.format(self.trace, number_of_commits))
         commits = self.repository.walk_back(number_of_commits)
         for commit in commits:
             print('Testing {0} ({1} left)'.format(commit, number_of_commits))
-            self.run_for_commit(backend, trace, commit)
+            self.run_for_commit(commit)
             number_of_commits = number_of_commits - 1
 
     def perf_trace_path(self):
         return os.path.join(self.repository.repository_path, "perf", "cairo-perf-trace")
 
-    def run_perf_tool(self, backend, trace):
+    def run_perf_tool(self):
         env = os.environ.copy()
-        env['CAIRO_TEST_TARGET'] = backend
+        env['CAIRO_TEST_TARGET'] = self.backend
 
         process = subprocess.Popen([self.perf_trace_path(),
                                     '-c', # cache images
                                     '-r', # raw output
-                                     trace],
+                                     self.trace],
                                     stdout=subprocess.PIPE, env=env)
         (stdout, stderr) = process.communicate()
         process.wait()
@@ -144,6 +146,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     database = leveldb.LevelDB(PERFORMANCE_RESULTS_PATH)
-    runner = PerfTraceRunner(CairoRepository(sys.argv[1]), database)
-    runner.run('image', sys.argv[2], 3)
+    runner = PerfTraceRun(CairoRepository(sys.argv[1]), database, 'image', sys.argv[2])
+    runner.run(4)
 
