@@ -58,9 +58,9 @@ class CairoRepository(pygit2.Repository):
 
         hashes = [line.split(' ')[0] for line in stdout.decode().strip().splitlines()]
         try:
-            for commit_hash in hashes:
+            for index, commit_hash in enumerate(hashes):
                 self.checkout(commit_hash)
-                yield commit_hash
+                yield (commit_hash, len(hashes) - index)
         finally:
             self.checkout(branch)
 
@@ -110,16 +110,15 @@ class PerfTraceRun(pygit2.Repository):
         print('    Writing results...')
         self.write_trace_result(commit, new_result)
 
-    def run(self, number_of_commits):
+    def run(self, commit_range):
         if not(self.repository.working_tree_clean()):
             raise Exception("Repository does not have a clean working tree.")
 
-        print('Running trace {0} for {1} commits'.format(self.trace, number_of_commits))
-        commits = self.repository.walk_commit_range("HEAD~{0}..".format(number_of_commits))
-        for commit in commits:
-            print('Testing {0} ({1} left)'.format(commit, number_of_commits))
+        print('Running trace {0} for {1}'.format(self.trace, commit_range))
+        commits = self.repository.walk_commit_range(commit_range)
+        for commit, commits_left in commits:
+            print('Testing {0} ({1} left)'.format(commit, commits_left))
             self.run_for_commit(commit)
-            number_of_commits = number_of_commits - 1
 
     def perf_trace_path(self):
         return os.path.join(self.repository.repository_path, "perf", "cairo-perf-trace")
@@ -148,10 +147,10 @@ class PerfTraceRun(pygit2.Repository):
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print('Need to provide the path to the Cairo trace')
+        print('Need to provide the path to the Cairo trace and commit range')
         sys.exit(1)
 
     database = leveldb.LevelDB(PERFORMANCE_RESULTS_PATH)
     runner = PerfTraceRun(CairoRepository(DEFAULT_CAIRO_PATH), database, 'image', sys.argv[1])
-    runner.run(4)
+    runner.run(sys.argv[2])
 
