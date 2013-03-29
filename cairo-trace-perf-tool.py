@@ -131,7 +131,7 @@ class PerformanceReport(object):
 
         print('    Running trace for {0}...'.format(backend))
         (normalization, results) = self.run_test(backend)
-        new_result = {'results': results,
+        new_result = {'samples': results,
                       'normalization': normalization}
 
         print('    Writing results...')
