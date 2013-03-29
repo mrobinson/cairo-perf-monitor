@@ -64,68 +64,74 @@ class CairoRepository(pygit2.Repository):
         finally:
             self.checkout(branch)
 
-class PerfTraceRun(pygit2.Repository):
-    def __init__(self, repository, database, backend, trace):
+class PerformanceReport(object):
+    def __init__(self, repository, backends):
         self.repository = repository
-        self.database = database
-        self.backend = backend
-        self.trace = trace
+        self.backends = backends
+        self.database = leveldb.LevelDB(self.database_path())
 
-    def trace_results_key(self, commit):
-        trace_name = os.path.basename(self.trace).replace('.trace', '')
-        return '{0}-{1}-{2}'.format(trace_name, self.backend, commit).encode()
-
-    def has_trace_result(self, commit):
+    def result_from_database(self, commit, backend):
         try:
-            self.database.Get(self.trace_results_key(commit))
-            return True
+            return self.database.Get(self.trace_results_key(commit, backend))
         except:
-            return False
+            return None
 
-    def write_trace_result(self, commit, result):
+    def write_result(self, commit, backend, result):
         try:
             pickled_result = pickle.dumps(result)
-            self.database.Put(self.trace_results_key(commit), pickled_result)
+            self.database.Put(self.trace_results_key(commit, backend), pickled_result)
         except Exception as e:
-            print('Couldn\'t write {0} results to database: {1}'.format(commit, e))
+            print('Couldn\'t write {0} at {1} results to database: {1}'.format(backend, commit, e))
 
-    def run_for_commit(self, commit):
-        if self.has_trace_result(commit):
-            print('    Have results in database for {0}, skipping'.format(commit))
-            return
-
-        new_result = {'commit': commit,
-                      'results': [],
-                      'normalization': 1}
-        print('    Building...')
-        if not self.repository.build():
-            print('    Failed to build commit, skipping!')
-        else:
-            print('    Running trace...')
-            (normalization, results) = self.parse_perf_tool_output(self.run_perf_tool())
-            new_result['normalization'] = normalization
-            new_result['results'] = results
-
-
-        print('    Writing results...')
-        self.write_trace_result(commit, new_result)
-
-    def run(self, commit_range):
+    def run_for_commit_range(self, commit_range):
         if not(self.repository.working_tree_clean()):
             raise Exception("Repository does not have a clean working tree.")
 
         print('Running trace {0} for {1}'.format(self.trace, commit_range))
         commits = self.repository.walk_commit_range(commit_range)
         for commit, commits_left in commits:
+
             print('Testing {0} ({1} left)'.format(commit, commits_left))
-            self.run_for_commit(commit)
+            if not self.repository.build():
+                print('    Failed to build commit, skipping!')
+                continue
+
+            for backend in backends:
+                self.get_results_for_commit_and_backend(commit, backend)
+
+    def get_results_for_commit_and_backend(self, commit, backend):
+        old_result = self.result_from_database(commit, backend)
+        if old_result:
+            print('    Have results in database for {0} at {1}, skipping'.format(backend, commit))
+            return old_result
+
+        print('    Running trace for {0}...'.format(backend))
+        (normalization, results) = self.run_test(backend)
+        new_result = {'results': results,
+                      'normalization': normalization}
+
+        print('    Writing results...')
+        self.write_result(commit, backend, new_result)
+        return new_result
+
+class PerfTraceReport(PerformanceReport):
+    def __init__(self, repository, backends, trace):
+        super().__init__(repository, backends)
+        self.trace = trace
+
+    def database_path(self):
+        return PERFORMANCE_RESULTS_PATH
+
+    def trace_results_key(self, commit, backend):
+        trace_name = os.path.basename(self.trace).replace('.trace', '')
+        return '{0}-{1}-{2}'.format(trace_name, backend, commit).encode()
 
     def perf_trace_path(self):
         return os.path.join(self.repository.repository_path, "perf", "cairo-perf-trace")
 
-    def run_perf_tool(self):
+    def run_test(self, backend):
         env = os.environ.copy()
-        env['CAIRO_TEST_TARGET'] = self.backend
+        env['CAIRO_TEST_TARGET'] = backend
 
         process = subprocess.Popen([self.perf_trace_path(),
                                     '-c', # cache images
@@ -134,7 +140,7 @@ class PerfTraceRun(pygit2.Repository):
                                     stdout=subprocess.PIPE, env=env)
         (stdout, stderr) = process.communicate()
         process.wait()
-        return str(stdout, encoding='utf8')
+        return self.parse_perf_tool_output(str(stdout, encoding='utf8'))
 
     @staticmethod
     def parse_perf_tool_output(output):
@@ -146,11 +152,13 @@ class PerfTraceRun(pygit2.Repository):
         return (0, 0)
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 4:
         print('Need to provide the path to the Cairo trace and commit range')
         sys.exit(1)
 
-    database = leveldb.LevelDB(PERFORMANCE_RESULTS_PATH)
-    runner = PerfTraceRun(CairoRepository(DEFAULT_CAIRO_PATH), database, 'image', sys.argv[1])
-    runner.run(sys.argv[2])
+    repository = CairoRepository(DEFAULT_CAIRO_PATH)
+    backends = sys.argv[1].split(',')
+
+    runner = PerfTraceReport(repository, backends, sys.argv[2])
+    runner.run_for_commit_range(sys.argv[3])
 
