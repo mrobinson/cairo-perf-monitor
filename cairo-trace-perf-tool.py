@@ -120,7 +120,7 @@ class PerformanceReport(object):
                 continue
             for backend in backends:
                 result[backend] = self.get_results_for_commit_and_backend(commit, backend)
-            results.append(result)
+            results.insert(0, result)
         return report
 
     def get_results_for_commit_and_backend(self, commit, backend):
