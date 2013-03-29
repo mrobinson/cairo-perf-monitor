@@ -6,7 +6,11 @@
         <script type="text/javascript" src="gvim.js"></script>
     </head>
     <body>
-        <div id="graphdiv"></div>
+        <div>
+            <div id="graphdiv" style=float:left;"></div>
+            <div id="commitmessage" style="float:left; font-family:monospace; width:400px;"></div>
+        </div>
+
         <script type="text/javascript">
             function findArrayStats(values) {
                 var result = {
@@ -87,7 +91,10 @@
 
                 new Dygraph(element, series, 
                             { errorBars: true,
-                              labels: ['commit'].concat(backends)});
+                              labels: ['commit'].concat(backends),
+                              highlightCallback: function(e, x, points, row) {
+                                  document.getElementById('commitmessage').innerText = results[row].message;
+                             }});
             }
 
             graphFromTrace(document.getElementById("graphdiv"), gvim);
