@@ -37,6 +37,15 @@ class CairoRepository(pygit2.Repository):
             print(stderr)
             sys.exit()
 
+    def commit_description(self, commit):
+        process = subprocess.Popen(['git', 'log', '-n', '1', commit],
+                                   cwd=self.repository_path,
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE)
+        (stdout, stderr) = process.communicate()
+        status = process.wait()
+        return (stdout + stderr).decode()
+
     def build(self):
         if not os.path.exists(os.path.join(self.repository_path, "config.log")):
             print("Need to run configure before using this tool")
@@ -100,16 +109,19 @@ class PerformanceReport(object):
         print('Running trace {0} for {1}'.format(self.trace, self.commit_range))
         commits = self.repository.walk_commit_range(self.commit_range)
         for commit, commits_left in commits:
-            result = {'commit': commit}
+            result = {'commit': commit,
+                      'message': self.repository.commit_description(commit)}
 
             print('Testing {0} ({1} left)'.format(commit, commits_left))
+
+            print('    Building...')
             if not self.repository.build():
                 print('    Failed to build commit, skipping!')
                 continue
             for backend in backends:
                 result[backend] = self.get_results_for_commit_and_backend(commit, backend)
             results.append(result)
-        return results
+        return report
 
     def get_results_for_commit_and_backend(self, commit, backend):
         old_result = self.result_from_database(commit, backend)
@@ -173,6 +185,6 @@ if __name__ == "__main__":
     repository = CairoRepository(DEFAULT_CAIRO_PATH)
     backends = sys.argv[1].split(',')
 
-    report = PerfTraceReport(repository, backends, sys.argv[2], sys.argv[3]).get_report()
-    print(json.dumps(report, indent=1))
+    report = PerfTraceReport(repository, backends, sys.argv[2], sys.argv[3])
+    print('var {0} = {1};'.format(report.test_description(), json.dumps(report.get_report(), indent=1)))
 
