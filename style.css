@@ -1,0 +1,14 @@
+.graph {
+    float: left;
+    margin-right: 10px;
+    width: 500px;
+    border: 1px solid;
+    border-radius: 6px;
+    -moz-border-radius: 6px;
+    -webkit-border-radius:6px;
+}
+
+.commitmessage {
+    font-family: monospace;
+    width: 100%;
+}
