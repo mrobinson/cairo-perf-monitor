@@ -82,7 +82,7 @@ function processSamples(data) {
     return [stats.mean / (data.normalization * 1000), stats.standardDeviation];
 }
 
-function graphFromTrace(element, data) {
+function graphFromTrace(data) {
     var results = data['results'];
 
     var series = [];
@@ -98,10 +98,16 @@ function graphFromTrace(element, data) {
 
         series.push(newSeries);
     }
-    new Dygraph(element, series, 
+
+    var parent = document.createElement('div');
+    document.body.appendChild(parent);
+    parent.innerHTML = '<div class="graph"></div><div class="commitmessage"></div>';
+
+    new Dygraph(parent.childNodes[0], series, 
                 { errorBars: true,
                   labels: ['commit'].concat(backends),
                   highlightCallback: function(e, x, points, row) {
-                      document.getElementById('commitmessage').innerText = results[row].message;
+                      parent.childNodes[1].innerText = results[row].message;
                  }});
+
 }
