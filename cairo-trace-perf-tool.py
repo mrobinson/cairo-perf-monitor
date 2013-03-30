@@ -16,6 +16,9 @@ class CairoRepository(pygit2.Repository):
     def __init__(self, repository_path):
         super().__init__(repository_path)
         self.repository_path = repository_path
+        self.failed_to_build = False
+        self.built = False
+        self.current_commit = None
 
     def working_tree_clean(self):
         status = self.status()
@@ -27,6 +30,9 @@ class CairoRepository(pygit2.Repository):
         return True
 
     def checkout(self, arg='master'):
+        if self.current_commit == arg:
+            return
+
         process = subprocess.Popen(['git', 'checkout', arg], cwd=self.repository_path,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (stdout, stderr) = process.communicate()
@@ -36,6 +42,9 @@ class CairoRepository(pygit2.Repository):
             print(stdout)
             print(stderr)
             sys.exit()
+        else:
+            self.built = False
+            self.current_commit = arg
 
     def commit_description(self, commit):
         process = subprocess.Popen(['git', 'log', '-n', '1', commit],
@@ -51,28 +60,26 @@ class CairoRepository(pygit2.Repository):
             print("Need to run configure before using this tool")
             sys.exit()
 
+        if self.built:
+            return
+
         process = subprocess.Popen(['make', '-j{0}'.format(multiprocessing.cpu_count())],
                                    cwd=self.repository_path,
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (stdout, stderr) = process.communicate()
         status = process.wait()
+
+        self.failed_to_build = bool(status)
         return not status
 
-    def walk_commit_range(self, commit_range, branch='master'):
+    def hashes_in_commit_range(self, commit_range, branch='master'):
         self.checkout(branch)
-
         process = subprocess.Popen(['git', 'log', '--pretty=oneline', commit_range],
                                    cwd=self.repository_path, stdout=subprocess.PIPE)
         (stdout, stderr) = process.communicate()
         process.wait()
+        return [line.split(' ')[0] for line in stdout.decode().strip().splitlines()]
 
-        hashes = [line.split(' ')[0] for line in stdout.decode().strip().splitlines()]
-        try:
-            for index, commit_hash in enumerate(hashes):
-                self.checkout(commit_hash)
-                yield (commit_hash, len(hashes) - index)
-        finally:
-            self.checkout(branch)
 
 class PerformanceReport(object):
     def __init__(self, repository, backends, commit_range):
@@ -98,36 +105,45 @@ class PerformanceReport(object):
         if not(self.repository.working_tree_clean()):
             raise Exception("Repository does not have a clean working tree.")
 
+        print('Running trace {0} for {1}'.format(self.trace, self.commit_range))
         report = {
             'test': self.test_description(),
             'commitRange': self.commit_range,
             'backends': self.backends,
             'results': [],
+
         }
-        results = report['results']
-
-        print('Running trace {0} for {1}'.format(self.trace, self.commit_range))
-        commits = self.repository.walk_commit_range(self.commit_range)
-        for commit, commits_left in commits:
-            result = {'commit': commit,
-                      'message': self.repository.commit_description(commit)}
-
-            print('Testing {0} ({1} left)'.format(commit, commits_left))
-
-            print('    Building...')
-            if not self.repository.build():
-                print('    Failed to build commit, skipping!')
-                continue
-            for backend in backends:
-                result[backend] = self.get_results_for_commit_and_backend(commit, backend)
-            results.insert(0, result)
+        try:
+            hashes = self.repository.hashes_in_commit_range(self.commit_range)
+            for i, commit_hash in enumerate(hashes):
+                print('Testing {0} ({1} left)'.format(commit_hash, len(hashes) - i))
+                report['results'].insert(0, self.get_results_for_commit(commit_hash))
+        finally:
+            self.repository.checkout('master')
         return report
+
+    def get_results_for_commit(self, commit):
+        result = {'commit': commit,
+                  'message': self.repository.commit_description(commit)}
+
+        for backend in backends:
+            result[backend] = self.get_results_for_commit_and_backend(commit, backend)
+            if self.repository.failed_to_build:
+                print('    Failed to build commit, skipping!')
+                break
+
+        return result
 
     def get_results_for_commit_and_backend(self, commit, backend):
         old_result = self.result_from_database(commit, backend)
         if old_result:
             print('    Have results in database for {0} at {1}, skipping'.format(backend, commit))
             return old_result
+
+        self.repository.checkout(commit)
+        if not self.repository.built:
+            print('    Building...')
+            self.repository.build()
 
         print('    Running trace for {0}...'.format(backend))
         (normalization, results) = self.run_test(backend)
