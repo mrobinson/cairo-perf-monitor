@@ -101,10 +101,13 @@ function graphFromTrace(data) {
 
     var parent = document.createElement('div');
     document.body.appendChild(parent);
-    parent.innerHTML = '<div class="graph"></div><div class="commitmessage"></div>';
+    
+    parent.innerHTML = '<div class="graph"></div>' +
+                       '<div class="commitmessage"></div>';
 
     new Dygraph(parent.childNodes[0], series, 
-                { errorBars: true,
+                { title: data['test'] + ' (' + data['commitRange'] + ')',
+                  errorBars: true,
                   labels: ['commit'].concat(backends),
                   highlightCallback: function(e, x, points, row) {
                       parent.childNodes[1].innerText = results[row].message;
