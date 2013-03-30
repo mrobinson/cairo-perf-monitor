@@ -173,13 +173,25 @@ class PerfTraceReport(PerformanceReport):
 
     def run_test(self, backend):
         env = os.environ.copy()
+
+        msaa = '-msaa' in backend
+        if msaa:
+            backend = backend.replace('-msaa', '')
+            env['CAIRO_GL_COMPOSITOR'] = 'msaa'
+        else:
+            env['CAIRO_GL_COMPOSITOR'] = 'foo'
+
+        cache_images = not '-nocache' in backend
+        if not cache_images:
+            backend = backend.replace('-nocache', '')
+
         env['CAIRO_TEST_TARGET'] = backend
 
-        process = subprocess.Popen([self.perf_trace_path(),
-                                    '-c', # cache images
-                                    '-r', # raw output
-                                     self.trace],
-                                    stdout=subprocess.PIPE, env=env)
+        args = [self.perf_trace_path(), '-r', self.trace]
+        if cache_images:
+            args.append('-c')
+
+        process = subprocess.Popen(args, stdout=subprocess.PIPE, env=env)
         (stdout, stderr) = process.communicate()
         process.wait()
         return self.parse_perf_tool_output(str(stdout, encoding='utf8'))
