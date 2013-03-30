@@ -82,11 +82,26 @@ function processSamples(data) {
     return [stats.mean / (data.normalization * 1000), stats.standardDeviation];
 }
 
-function graphFromTrace(data) {
-    var results = data['results'];
+function makeGraphElement(backends) {
+    var element = document.createElement('div');
 
+    var graphHTML = '<div class="graph">' +
+                        '<div></div>' + // The actual graph div.
+                        '<div>';
+    for (var i = 0; i < backends.length; i++) {
+        graphHTML += '<label>';
+        graphHTML +=    '<input type="checkbox" checked onClick="setSeriesVisibility(this, ' + i + ');">';
+        graphHTML +=    backends[i];
+        graphHTML += '</label>';
+    }
+    graphHTML += '</div></div>' +
+                 '<div class="commitmessage"></div>';
+    element.innerHTML = graphHTML;
+    return element;
+}
+
+function seriesFromData(results, backends) {
     var series = [];
-    var backends = data['backends'];
 
     for (var i = 0; i < results.length; i++) {
         var commit = results[i];
@@ -99,18 +114,30 @@ function graphFromTrace(data) {
         series.push(newSeries);
     }
 
-    var parent = document.createElement('div');
-    document.body.appendChild(parent);
-    
-    parent.innerHTML = '<div class="graph"></div>' +
-                       '<div class="commitmessage"></div>';
+    return series;
+}
 
-    new Dygraph(parent.childNodes[0], series, 
-                { title: data['test'] + ' (' + data['commitRange'] + ')',
-                  errorBars: true,
-                  labels: ['commit'].concat(backends),
-                  highlightCallback: function(e, x, points, row) {
-                      parent.childNodes[1].innerText = results[row].message;
-                 }});
+function graphFromTrace(data) {
+    var results = data['results'];
+    var backends = data['backends'];
+
+    var element = makeGraphElement(backends)
+    document.body.appendChild(element);
+
+    var graph = new Dygraph(
+        element.childNodes[0].childNodes[0],
+        seriesFromData(results, backends),
+        {
+            title: data['test'] + ' (' + data['commitRange'] + ')',
+            errorBars: true,
+            labels: ['commit'].concat(backends),
+            highlightCallback: function(e, x, points, row) {
+                element.childNodes[1].innerText = results[row].message;
+            }
+        });
+
+    window.setSeriesVisibility = function(checkbox, series) {
+        graph.setVisibility(series, checkbox.checked);
+    }
 
 }
