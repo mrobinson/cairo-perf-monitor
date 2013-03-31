@@ -1,6 +1,11 @@
+.graphandcommit {
+    clear: both;
+}
+
 .graph {
     float: left;
     margin-right: 10px;
+    margin-bottom: 15px;
     width: 500px;
     border: 1px solid;
     border-radius: 6px;

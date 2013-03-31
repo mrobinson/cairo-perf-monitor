@@ -22,7 +22,8 @@
  * IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-function findArrayStats(values) {
+function findArrayStats(values)
+{
     var result = {
         'standardDeviation': 0,
         'median': 0,
@@ -75,15 +76,18 @@ function findArrayStats(values) {
     return result;
 }
 
-function processSamples(data) {
+function processSamples(data)
+{
     if (data === undefined)
         return [];
     var stats = findArrayStats(data.samples);
     return [stats.mean / (data.normalization * 1000), stats.standardDeviation];
 }
 
-function makeGraphElement(backends) {
+function makeGraphElement(backends)
+{
     var element = document.createElement('div');
+    element.className = "graphandcommit"
 
     var graphHTML = '<div class="graph">' +
                         '<div></div>' + // The actual graph div.
@@ -100,7 +104,8 @@ function makeGraphElement(backends) {
     return element;
 }
 
-function seriesFromData(results, backends) {
+function seriesFromData(results, backends)
+{
     var series = [];
 
     for (var i = 0; i < results.length; i++) {
@@ -117,7 +122,14 @@ function seriesFromData(results, backends) {
     return series;
 }
 
-function graphFromTrace(data) {
+function setSeriesVisibility(checkbox, series)
+{
+    // FIXME: This is a big fragile! :)
+    checkbox.parentElement.parentElement.parentElement.parentElement._graph.setVisibility(series, checkbox.checked);
+}
+
+function graphFromTrace(data)
+{
     var results = data['results'];
     var backends = data['backends'];
 
@@ -135,9 +147,6 @@ function graphFromTrace(data) {
                 element.childNodes[1].innerText = results[row].message;
             }
         });
-
-    window.setSeriesVisibility = function(checkbox, series) {
-        graph.setVisibility(series, checkbox.checked);
-    }
+    element._graph = graph;
 
 }
