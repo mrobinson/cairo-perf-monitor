@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Cairo Performance Monitor</title>
+        <link rel="stylesheet" type="text/css" href="style.css">
+        <script type="text/javascript" src="http://dygraphs.com/dygraph-combined.js"></script>
+        <script type="text/javascript" src="graphs.js"></script>
+        <script type="text/javascript" src="reports/firefox_fishbowl.js"></script>
+        <script type="text/javascript" src="reports/gvim.js"></script>
+
+    </head>
+    <body>
+        <script type="text/javascript">
+            graphFromTrace(firefox_fishbowl);
+            graphFromTrace(gvim);
+
+        </script>
+    </body>
+</html>
