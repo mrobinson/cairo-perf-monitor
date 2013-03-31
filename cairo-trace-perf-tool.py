@@ -9,8 +9,14 @@ import pygit2
 import subprocess
 import sys
 
+from string import Template
+
 PERFORMANCE_RESULTS_PATH = "performance-results.db"
 DEFAULT_CAIRO_PATH = "../cairo"
+SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
+TEMPLATE_PATH = os.path.join(SCRIPT_PATH, 'index.html.template')
+UI_PATH = os.path.join(SCRIPT_PATH, 'ui')
+REPORT_PATH = os.path.join(UI_PATH, 'reports')
 
 class CairoRepository(pygit2.Repository):
     def __init__(self, repository_path):
@@ -205,6 +211,43 @@ class PerfTraceReport(PerformanceReport):
             return (float(parts[3]), [float(x) for x in parts[4:]])
         return (0, 0)
 
+class JSONFormatter(object):
+    def __init__(self, report):
+        self.report = report
+
+    def write(self, filename):
+        print('Writing report to {0}'.format(filename))
+        with open(os.path.join(filename), 'w') as output:
+            output.write(self.format())
+
+    def format(self):
+        return json.dumps(self.report.get_report(), indent=1)
+
+class JSFormatter(JSONFormatter):
+    def format(self):
+        return 'var {0} = {1};'.format(self.report.test_description(),
+                                       super(JSFormatter, self).format())
+    def write(self, filename):
+        super(JSFormatter, self).write(filename)
+        self.update_frontend()
+
+    def update_frontend(self):
+        script_template = Template('        <script type="text/javascript" src="reports/$report.js"></script>\n')
+        graph_template = Template('            graphFromTrace($report);\n')
+
+        scripts = ''
+        graphs = ''
+        for filename in os.listdir(REPORT_PATH):
+            if not filename.endswith('.js'):
+                continue
+            filename = filename.replace('.js', '')
+            scripts += script_template.substitute(report=filename)
+            graphs += graph_template.substitute(report=filename)
+
+        template = Template(open(TEMPLATE_PATH).read())
+        with open(os.path.join(UI_PATH, 'index.html'), 'w') as output:
+            output.write(template.substitute(scripts=scripts, graphs=graphs))
+
 if __name__ == "__main__":
     if len(sys.argv) < 4:
         print('Need to provide the path to the Cairo trace and commit range')
@@ -214,5 +257,5 @@ if __name__ == "__main__":
     backends = sys.argv[1].split(',')
 
     report = PerfTraceReport(repository, backends, sys.argv[2], sys.argv[3])
-    print('var {0} = {1};'.format(report.test_description(), json.dumps(report.get_report(), indent=1)))
-
+    output_file = os.path.join(REPORT_PATH, report.test_description() + '.js')
+    JSFormatter(report).write(output_file)
