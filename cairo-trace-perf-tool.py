@@ -15,7 +15,7 @@ PERFORMANCE_RESULTS_PATH = "performance-results.db"
 DEFAULT_CAIRO_PATH = "../cairo"
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 TEMPLATE_PATH = os.path.join(SCRIPT_PATH, 'index.html.template')
-UI_PATH = os.path.join(SCRIPT_PATH, 'ui')
+UI_PATH = SCRIPT_PATH
 REPORT_PATH = os.path.join(UI_PATH, 'reports')
 
 class CairoRepository(pygit2.Repository):
