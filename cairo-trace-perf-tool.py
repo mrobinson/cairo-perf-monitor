@@ -171,6 +171,9 @@ class PerfTraceReport(PerformanceReport):
     def test_description(self):
         return os.path.basename(self.trace).replace('.trace', '')
 
+    def filename(self):
+        return self.test_description().replace('-', '_')
+
     def trace_results_key(self, commit, backend):
         return '{0}-{1}-{2}'.format(self.test_description(), backend, commit).encode()
 
@@ -225,7 +228,7 @@ class JSONFormatter(object):
 
 class JSFormatter(JSONFormatter):
     def format(self):
-        return 'var {0} = {1};'.format(self.report.test_description(),
+        return 'var {0} = {1};'.format(self.report.filename(),
                                        super(JSFormatter, self).format())
     def write(self, filename):
         super(JSFormatter, self).write(filename)
@@ -257,5 +260,5 @@ if __name__ == "__main__":
     backends = sys.argv[1].split(',')
 
     report = PerfTraceReport(repository, backends, sys.argv[2], sys.argv[3])
-    output_file = os.path.join(REPORT_PATH, report.test_description() + '.js')
+    output_file = os.path.join(REPORT_PATH, report.filename() + '.js')
     JSFormatter(report).write(output_file)
