@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import configparser
 import json
 import leveldb
 import multiprocessing
@@ -15,6 +16,7 @@ from string import Template
 PERFORMANCE_RESULTS_PATH = "performance-results.db"
 DEFAULT_CAIRO_PATH = "../cairo"
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
+TEST_CONFIG_PATH = os.path.join(SCRIPT_PATH, 'tests.ini')
 TEMPLATE_PATH = os.path.join(SCRIPT_PATH, 'index.html.template')
 UI_PATH = SCRIPT_PATH
 REPORT_PATH = os.path.join(UI_PATH, 'reports')
@@ -237,7 +239,6 @@ class JSONFormatter(object):
         self.report = report
 
     def write(self, filename):
-        print('Writing report to {0}'.format(filename))
         with open(os.path.join(filename), 'w') as output:
             output.write(self.format())
 
@@ -259,40 +260,44 @@ def sample(args, resample=False):
                              resample=resample)
     report.run_tests()
 
-def generate_report(args):
-    report = PerfTraceReport(CairoRepository(DEFAULT_CAIRO_PATH),
-                             args.backends.split(','),
-                             args.test,
-                             args.commit_range,
-                             resample=resample)
-    output_file = os.path.join(REPORT_PATH, report.filename() + '.js')
-    JSFormatter(report).write(output_file)
-
-def resample(args):
-    sample(args, resample=True)
-
 def make_html(args):
     output_file = os.path.join(UI_PATH, 'index.html')
     print('Updating {0}'.format(output_file))
 
-    script_template = Template('        <script type="text/javascript" src="reports/$report.js"></script>\n')
+    script_template = Template('        <script type="text/javascript" src="reports/$report"></script>\n')
     graph_template = Template('            graphFromTrace($report);\n')
 
     scripts = ''
     graphs = ''
-    for filename in os.listdir(REPORT_PATH):
-        if not filename.endswith('.js'):
-            continue
+    for test in get_tests_from_config():
+        js_path = os.path.join(REPORT_PATH, test.filename() + '.js')
+        print('    Writing test output to {0}'.format(js_path))
+        JSFormatter(test).write(js_path)
 
-        print('    Found {0}'.format(filename))
-        filename = filename.replace('.js', '')
-        scripts += script_template.substitute(report=filename)
-        graphs += graph_template.substitute(report=filename)
+        scripts += script_template.substitute(report=os.path.basename(js_path))
+        graphs += graph_template.substitute(report=test.filename())
 
     template = Template(open(TEMPLATE_PATH).read())
     with open(output_file, 'w') as output:
         output.write(template.substitute(scripts=scripts, graphs=graphs))
     print('Wrote {0}'.format(output_file))
+
+def resample(args):
+    sample(args, resample=True)
+
+def get_tests_from_config():
+    config = configparser.ConfigParser()
+    config.read(TEST_CONFIG_PATH)
+
+    repository = CairoRepository(DEFAULT_CAIRO_PATH)
+    tests = []
+    for section in config.sections():
+        tests.append(PerfTraceReport(repository,
+                                     config[section]['Backends'].split(','),
+                                     config[section]['TracePath'],
+                                     config[section]['CommitRange'],
+                                     False))
+    return tests
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -315,15 +320,6 @@ if __name__ == "__main__":
     parser_resample.add_argument('-t', '--test', type=str, dest='test',
                                  help="test to run")
     parser_resample.set_defaults(func=resample)
-
-    parser_resample = subparsers.add_parser('generate-report')
-    parser_resample.add_argument('-b', '--backends', type=str, dest='backends',
-                                 help="comma separated list of backends to sample")
-    parser_resample.add_argument('-c', '--commit-range', type=str, dest='commit_range',
-                                 help="commit range to sample")
-    parser_resample.add_argument('-t', '--test', type=str, dest='test',
-                                 help="test to run")
-    parser_resample.set_defaults(func=generate_report)
 
     parser_make_html = subparsers.add_parser('make-html')
     parser_make_html.set_defaults(func=make_html)
