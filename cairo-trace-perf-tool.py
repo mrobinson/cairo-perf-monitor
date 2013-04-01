@@ -50,6 +50,7 @@ class CairoRepository(pygit2.Repository):
             sys.exit()
         else:
             self.built = False
+            self.failed_to_build = False
             self.current_commit = arg
 
     def commit_description(self, commit):
@@ -76,7 +77,7 @@ class CairoRepository(pygit2.Repository):
         status = process.wait()
 
         self.failed_to_build = bool(status)
-        return not status
+        self.built = not bool(status)
 
     def hashes_in_commit_range(self, commit_range, branch='master'):
         self.checkout(branch)
