@@ -80,6 +80,11 @@ class CairoRepository(pygit2.Repository):
         self.built = not bool(status)
 
     def hashes_in_commit_range(self, commit_range, branch='master'):
+        # If there are no range characters in this range, just interpret it as
+        # a commit identifier.
+        if not '..' in commit_range:
+            return [commit_range]
+
         self.checkout(branch)
         process = subprocess.Popen(['git', 'log', '--pretty=oneline', commit_range],
                                    cwd=self.repository_path, stdout=subprocess.PIPE)
