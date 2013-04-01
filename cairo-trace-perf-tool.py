@@ -112,6 +112,10 @@ class PerformanceReport(object):
         except:
             return None
 
+    def remove_result_from_database(self, commit, backend):
+        self.database.Delete(self.trace_results_key(commit, backend), sync=True)
+        print('deleting {0}'.format(self.trace_results_key(commit, backend)))
+
     def write_result(self, commit, backend, result):
         try:
             pickled_result = pickle.dumps(result)
@@ -129,9 +133,7 @@ class PerformanceReport(object):
             for i, commit_hash in enumerate(hashes):
                 print('Testing {0} ({1} left)'.format(commit_hash, len(hashes) - i))
                 for backend in self.backends:
-                    if not self.run_test_for_commit_and_backend(commit_hash, backend, resample):
-                        print('    Failed to build commit, skipping!')
-                        break
+                    self.run_test_for_commit_and_backend(commit_hash, backend, resample)
         finally:
             self.repository.checkout('master')
 
@@ -142,7 +144,10 @@ class PerformanceReport(object):
 
         self.repository.checkout(commit)
         if not self.ensure_built():
-            return False
+            print('    Build failed, no data for {0}'.format(backend))
+            if resample:
+                self.remove_result_from_database(commit, backend)
+            return 
 
         print('    Running trace for {0}...'.format(backend))
         (normalization, results) = self.run_test(backend)
@@ -151,11 +156,13 @@ class PerformanceReport(object):
         self.write_result(commit, backend,
                           {'samples': results,
                            'normalization': normalization})
-        return True
 
     def ensure_built(self):
+        if self.repository.failed_to_build:
+            return False
         if self.repository.built:
             return True
+
         print('    Building...')
         self.repository.build()
         return not self.repository.failed_to_build
@@ -179,6 +186,8 @@ class PerformanceReport(object):
                 backend_result = self.result_from_database(commit_hash, backend)
                 if backend_result:
                     result[backend] = backend_result
+                else:
+                    print('No result for {0}'.format(self.trace_results_key(commit_hash, backend)))
             report['results'].insert(0, result)
         return report
 
