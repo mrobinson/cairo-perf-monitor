@@ -261,25 +261,32 @@ class JSFormatter(JSONFormatter):
     def write(self, filename):
         super(JSFormatter, self).write(filename)
 
-def get_tests_from_config():
+def get_tests_from_config(test=None, commit=None, backends=None):
     config = configparser.ConfigParser()
     config.read(TEST_CONFIG_PATH)
 
     repository = CairoRepository()
     tests = []
     for section in config.sections():
+        if test and section != test:
+            continue
+
+        test_commits = commit if commit else config[section]['CommitRange']
+        test_backends = backends.split(',') if backends else \
+            config[section]['Backends'].split(',')
         tests.append(PerfTraceReport(repository,
-                                     config[section]['Backends'].split(','),
+                                     test_backends,
                                      config[section]['TracePath'],
-                                     config[section]['CommitRange']))
+                                     test_commits))
     return tests
 
-def sample(args, resample=False):
+def sample(args):
     for test in get_tests_from_config():
-        test.run_tests(resample)
+        test.run_tests()
 
 def resample(args):
-    sample(args, resample=True)
+    for test in get_tests_from_config(test=args.test, commit=args.commit, backends=args.backends):
+        test.run_tests(resample)
 
 def make_html(args):
     output_file = os.path.join(UI_PATH, 'index.html')
@@ -311,6 +318,12 @@ if __name__ == "__main__":
     parser_sample.set_defaults(func=sample)
 
     parser_resample = subparsers.add_parser('resample')
+    parser_resample.add_argument('test', metavar='TEST', type=str,
+                                 help='a test to resample')
+    parser_resample.add_argument('--backends', '-b', type=str, default=None, dest='backends',
+                                 help='backends to resample')
+    parser_resample.add_argument('--commit', '-c', type=str, default=None, dest='commit',
+                                 help='commit range or commit to resample')
     parser_resample.set_defaults(func=resample)
 
     parser_make_html = subparsers.add_parser('make-html')
