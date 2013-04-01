@@ -241,7 +241,7 @@ class PerfTraceReport(PerformanceReport):
                continue
             parts = line.split(' ')
             return (float(parts[3]), [float(x) for x in parts[4:]])
-        return (0, 0)
+        return (0, [0])
 
 class JSONFormatter(object):
     def __init__(self, report):
