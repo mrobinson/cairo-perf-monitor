@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import json
 import leveldb
 import multiprocessing
@@ -94,11 +95,12 @@ class CairoRepository(pygit2.Repository):
 
 
 class PerformanceReport(object):
-    def __init__(self, repository, backends, commit_range):
+    def __init__(self, repository, backends, commit_range, resample):
         self.repository = repository
         self.backends = backends
         self.commit_range = commit_range
         self.database = leveldb.LevelDB(self.database_path())
+        self.resample = resample
 
     def result_from_database(self, commit, backend):
         try:
@@ -138,7 +140,7 @@ class PerformanceReport(object):
         result = {'commit': commit,
                   'message': self.repository.commit_description(commit)}
 
-        for backend in backends:
+        for backend in self.backends:
             result[backend] = self.get_results_for_commit_and_backend(commit, backend)
             if self.repository.failed_to_build:
                 print('    Failed to build commit, skipping!')
@@ -147,10 +149,11 @@ class PerformanceReport(object):
         return result
 
     def get_results_for_commit_and_backend(self, commit, backend):
-        old_result = self.result_from_database(commit, backend)
-        if old_result:
-            print('    Have results in database for {0} at {1}, skipping'.format(backend, commit))
-            return old_result
+        if not self.resample:
+            old_result = self.result_from_database(commit, backend)
+            if old_result:
+                print('    Have results in database for {0} at {1}, skipping'.format(backend, commit))
+                return old_result
 
         self.repository.checkout(commit)
         if not self.repository.built:
@@ -167,8 +170,8 @@ class PerformanceReport(object):
         return new_result
 
 class PerfTraceReport(PerformanceReport):
-    def __init__(self, repository, backends, trace, commit_range):
-        super().__init__(repository, backends, commit_range)
+    def __init__(self, repository, backends, trace, commit_range, resample):
+        super().__init__(repository, backends, commit_range, resample)
         self.trace = trace
 
     def database_path(self):
@@ -238,33 +241,66 @@ class JSFormatter(JSONFormatter):
                                        super(JSFormatter, self).format())
     def write(self, filename):
         super(JSFormatter, self).write(filename)
-        self.update_frontend()
 
-    def update_frontend(self):
-        script_template = Template('        <script type="text/javascript" src="reports/$report.js"></script>\n')
-        graph_template = Template('            graphFromTrace($report);\n')
-
-        scripts = ''
-        graphs = ''
-        for filename in os.listdir(REPORT_PATH):
-            if not filename.endswith('.js'):
-                continue
-            filename = filename.replace('.js', '')
-            scripts += script_template.substitute(report=filename)
-            graphs += graph_template.substitute(report=filename)
-
-        template = Template(open(TEMPLATE_PATH).read())
-        with open(os.path.join(UI_PATH, 'index.html'), 'w') as output:
-            output.write(template.substitute(scripts=scripts, graphs=graphs))
-
-if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print('Need to provide the path to the Cairo trace and commit range')
-        sys.exit(1)
-
-    repository = CairoRepository(DEFAULT_CAIRO_PATH)
-    backends = sys.argv[1].split(',')
-
-    report = PerfTraceReport(repository, backends, sys.argv[2], sys.argv[3])
+def sample(args, resample=False):
+    report = PerfTraceReport(CairoRepository(DEFAULT_CAIRO_PATH),
+                             args.backends.split(','),
+                             args.test,
+                             args.commit_range,
+                             resample=resample)
     output_file = os.path.join(REPORT_PATH, report.filename() + '.js')
     JSFormatter(report).write(output_file)
+
+def resample(args):
+    sample(args, resample=True)
+
+def make_html(args):
+    output_file = os.path.join(UI_PATH, 'index.html')
+    print('Updating {0}'.format(output_file))
+
+    script_template = Template('        <script type="text/javascript" src="reports/$report.js"></script>\n')
+    graph_template = Template('            graphFromTrace($report);\n')
+
+    scripts = ''
+    graphs = ''
+    for filename in os.listdir(REPORT_PATH):
+        if not filename.endswith('.js'):
+            continue
+
+        print('    Found {0}'.format(filename))
+        filename = filename.replace('.js', '')
+        scripts += script_template.substitute(report=filename)
+        graphs += graph_template.substitute(report=filename)
+
+    template = Template(open(TEMPLATE_PATH).read())
+    with open(output_file, 'w') as output:
+        output.write(template.substitute(scripts=scripts, graphs=graphs))
+    print('Wrote {0}'.format(output_file))
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers()
+
+    parser_sample = subparsers.add_parser('sample')
+    parser_sample.add_argument('-b', '--backends', type=str, dest='backends',
+                               help="comma separated list of backends to sample")
+    parser_sample.add_argument('-c', '--commit-range', type=str, dest='commit_range',
+                               help="commit range to sample")
+    parser_sample.add_argument('-t', '--test', type=str, dest='test',
+                               help="test to run")
+    parser_sample.set_defaults(func=sample)
+
+    parser_resample = subparsers.add_parser('resample')
+    parser_resample.add_argument('-b', '--backends', type=str, dest='backends',
+                                 help="comma separated list of backends to sample")
+    parser_resample.add_argument('-c', '--commit-range', type=str, dest='commit_range',
+                                 help="commit range to sample")
+    parser_resample.add_argument('-t', '--test', type=str, dest='test',
+                                 help="test to run")
+    parser_resample.set_defaults(func=resample)
+
+    parser_make_html = subparsers.add_parser('make-html')
+    parser_make_html.set_defaults(func=make_html)
+
+    args = parser.parse_args()
+    args.func(args)
