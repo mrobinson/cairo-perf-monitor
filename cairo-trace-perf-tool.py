@@ -192,6 +192,9 @@ class PerfTraceReport(PerformanceReport):
             print('Could not find cairo-traces repository at {0}. Check it out there or make a symlink.'.format(traces_path))
             sys.exit(1)
         self.trace = os.path.join(traces_path, trace)
+        if not os.path.exists(self.trace):
+            print('Could not find trace {0}'.format(self.trace))
+            sys.exit(1)
 
     def database_path(self):
         return PERFORMANCE_RESULTS_PATH
