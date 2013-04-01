@@ -115,59 +115,68 @@ class PerformanceReport(object):
         except Exception as e:
             print('Couldn\'t write {0} at {1} results to database: {1}'.format(backend, commit, e))
 
-    def get_report(self):
+    def run_tests(self):
         if not(self.repository.working_tree_clean()):
             raise Exception("Repository does not have a clean working tree.")
 
         print('Running trace {0} for {1}'.format(self.trace, self.commit_range))
+        try:
+            hashes = self.repository.hashes_in_commit_range(self.commit_range)
+            for i, commit_hash in enumerate(hashes):
+                print('Testing {0} ({1} left)'.format(commit_hash, len(hashes) - i))
+                for backend in self.backends:
+                    if not self.run_test_for_commit_and_backend(commit_hash, backend):
+                        print('    Failed to build commit, skipping!')
+                        break
+        finally:
+            self.repository.checkout('master')
+
+    def run_test_for_commit_and_backend(self, commit, backend):
+        if not self.resample and self.result_from_database(commit, backend):
+            print('    Have results in database for {0} at {1}, skipping'.format(backend, commit))
+
+        self.repository.checkout(commit)
+        if not self.ensure_built():
+            return False
+
+        print('    Running trace for {0}...'.format(backend))
+        (normalization, results) = self.run_test(backend)
+
+        print('    Writing results...')
+        self.write_result(commit, backend,
+                          {'samples': results,
+                           'normalization': normalization})
+        return True
+
+    def ensure_built(self):
+        if self.repository.built:
+            return True
+        print('    Building...')
+        self.repository.build()
+        return not self.repository.failed_to_build
+
+    def get_report(self):
+        print('Generating report for trace {0} in {1}'.format(self.trace, self.commit_range))
         report = {
             'test': self.test_description(),
             'commitRange': self.commit_range,
             'backends': self.backends,
             'results': [],
-
         }
-        try:
-            hashes = self.repository.hashes_in_commit_range(self.commit_range)
-            for i, commit_hash in enumerate(hashes):
-                print('Testing {0} ({1} left)'.format(commit_hash, len(hashes) - i))
-                report['results'].insert(0, self.get_results_for_commit(commit_hash))
-        finally:
-            self.repository.checkout('master')
+
+        hashes = self.repository.hashes_in_commit_range(self.commit_range)
+        for i, commit_hash in enumerate(hashes):
+            result = {}
+            result['commit'] = commit_hash
+            result['message'] = self.repository.commit_description(commit_hash)
+
+            for backend in self.backends:
+                backend_result = self.result_from_database(commit_hash, backend)
+                if backend_result:
+                    result[backend] = backend_result
+            report['results'].insert(0, result)
         return report
 
-    def get_results_for_commit(self, commit):
-        result = {'commit': commit,
-                  'message': self.repository.commit_description(commit)}
-
-        for backend in self.backends:
-            result[backend] = self.get_results_for_commit_and_backend(commit, backend)
-            if self.repository.failed_to_build:
-                print('    Failed to build commit, skipping!')
-                break
-
-        return result
-
-    def get_results_for_commit_and_backend(self, commit, backend):
-        if not self.resample:
-            old_result = self.result_from_database(commit, backend)
-            if old_result:
-                print('    Have results in database for {0} at {1}, skipping'.format(backend, commit))
-                return old_result
-
-        self.repository.checkout(commit)
-        if not self.repository.built:
-            print('    Building...')
-            self.repository.build()
-
-        print('    Running trace for {0}...'.format(backend))
-        (normalization, results) = self.run_test(backend)
-        new_result = {'samples': results,
-                      'normalization': normalization}
-
-        print('    Writing results...')
-        self.write_result(commit, backend, new_result)
-        return new_result
 
 class PerfTraceReport(PerformanceReport):
     def __init__(self, repository, backends, trace, commit_range, resample):
@@ -248,6 +257,14 @@ def sample(args, resample=False):
                              args.test,
                              args.commit_range,
                              resample=resample)
+    report.run_tests()
+
+def generate_report(args):
+    report = PerfTraceReport(CairoRepository(DEFAULT_CAIRO_PATH),
+                             args.backends.split(','),
+                             args.test,
+                             args.commit_range,
+                             resample=resample)
     output_file = os.path.join(REPORT_PATH, report.filename() + '.js')
     JSFormatter(report).write(output_file)
 
@@ -298,6 +315,15 @@ if __name__ == "__main__":
     parser_resample.add_argument('-t', '--test', type=str, dest='test',
                                  help="test to run")
     parser_resample.set_defaults(func=resample)
+
+    parser_resample = subparsers.add_parser('generate-report')
+    parser_resample.add_argument('-b', '--backends', type=str, dest='backends',
+                                 help="comma separated list of backends to sample")
+    parser_resample.add_argument('-c', '--commit-range', type=str, dest='commit_range',
+                                 help="commit range to sample")
+    parser_resample.add_argument('-t', '--test', type=str, dest='test',
+                                 help="test to run")
+    parser_resample.set_defaults(func=generate_report)
 
     parser_make_html = subparsers.add_parser('make-html')
     parser_make_html.set_defaults(func=make_html)
