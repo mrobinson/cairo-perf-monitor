@@ -17,8 +17,7 @@ PERFORMANCE_RESULTS_PATH = "performance-results.db"
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 TEST_CONFIG_PATH = os.path.join(SCRIPT_PATH, 'tests.ini')
 TEMPLATE_PATH = os.path.join(SCRIPT_PATH, 'index.html.template')
-UI_PATH = SCRIPT_PATH
-REPORT_PATH = os.path.join(UI_PATH, 'reports')
+REPORT_PATH = os.path.join(SCRIPT_PATH, 'reports')
 
 class CairoRepository(pygit2.Repository):
     def __init__(self):
@@ -289,7 +288,7 @@ def resample(args):
         test.run_tests(resample)
 
 def make_html(args):
-    output_file = os.path.join(UI_PATH, 'index.html')
+    output_file = os.path.join(SCRIPT_PATH, 'index.html')
     print('Updating {0}'.format(output_file))
 
     script_template = Template('        <script type="text/javascript" src="reports/$report"></script>\n')
