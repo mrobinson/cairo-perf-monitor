@@ -14,7 +14,6 @@ import sys
 from string import Template
 
 PERFORMANCE_RESULTS_PATH = "performance-results.db"
-DEFAULT_CAIRO_PATH = "../cairo"
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 TEST_CONFIG_PATH = os.path.join(SCRIPT_PATH, 'tests.ini')
 TEMPLATE_PATH = os.path.join(SCRIPT_PATH, 'index.html.template')
@@ -22,7 +21,12 @@ UI_PATH = SCRIPT_PATH
 REPORT_PATH = os.path.join(UI_PATH, 'reports')
 
 class CairoRepository(pygit2.Repository):
-    def __init__(self, repository_path):
+    def __init__(self):
+        repository_path = os.path.join(SCRIPT_PATH, 'cairo')
+        if not os.path.exists(repository_path):
+            print('Could not find cairo repository at {0}. Check it out there or make a symlink.'.format(repository_path))
+            sys.exit(1)
+
         super().__init__(repository_path)
         self.repository_path = repository_path
         self.failed_to_build = False
@@ -183,7 +187,12 @@ class PerformanceReport(object):
 class PerfTraceReport(PerformanceReport):
     def __init__(self, repository, backends, trace, commit_range, resample):
         super().__init__(repository, backends, commit_range, resample)
-        self.trace = trace
+
+        traces_path = os.path.join(SCRIPT_PATH, 'cairo-traces')
+        if not os.path.exists(traces_path):
+            print('Could not find cairo-traces repository at {0}. Check it out there or make a symlink.'.format(traces_path))
+            sys.exit(1)
+        self.trace = os.path.join(traces_path, trace)
 
     def database_path(self):
         return PERFORMANCE_RESULTS_PATH
@@ -253,7 +262,7 @@ class JSFormatter(JSONFormatter):
         super(JSFormatter, self).write(filename)
 
 def sample(args, resample=False):
-    report = PerfTraceReport(CairoRepository(DEFAULT_CAIRO_PATH),
+    report = PerfTraceReport(CairoRepository(),
                              args.backends.split(','),
                              args.test,
                              args.commit_range,
@@ -289,7 +298,7 @@ def get_tests_from_config():
     config = configparser.ConfigParser()
     config.read(TEST_CONFIG_PATH)
 
-    repository = CairoRepository(DEFAULT_CAIRO_PATH)
+    repository = CairoRepository()
     tests = []
     for section in config.sections():
         tests.append(PerfTraceReport(repository,
