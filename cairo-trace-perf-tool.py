@@ -101,12 +101,11 @@ class CairoRepository(pygit2.Repository):
 
 
 class PerformanceReport(object):
-    def __init__(self, repository, backends, commit_range, resample):
+    def __init__(self, repository, backends, commit_range):
         self.repository = repository
         self.backends = backends
         self.commit_range = commit_range
         self.database = leveldb.LevelDB(self.database_path())
-        self.resample = resample
 
     def result_from_database(self, commit, backend):
         try:
@@ -121,7 +120,7 @@ class PerformanceReport(object):
         except Exception as e:
             print('Couldn\'t write {0} at {1} results to database: {1}'.format(backend, commit, e))
 
-    def run_tests(self):
+    def run_tests(self, resample):
         if not(self.repository.working_tree_clean()):
             raise Exception("Repository does not have a clean working tree.")
 
@@ -131,15 +130,16 @@ class PerformanceReport(object):
             for i, commit_hash in enumerate(hashes):
                 print('Testing {0} ({1} left)'.format(commit_hash, len(hashes) - i))
                 for backend in self.backends:
-                    if not self.run_test_for_commit_and_backend(commit_hash, backend):
+                    if not self.run_test_for_commit_and_backend(commit_hash, backend, resample):
                         print('    Failed to build commit, skipping!')
                         break
         finally:
             self.repository.checkout('master')
 
-    def run_test_for_commit_and_backend(self, commit, backend):
-        if not self.resample and self.result_from_database(commit, backend):
+    def run_test_for_commit_and_backend(self, commit, backend, resample):
+        if not resample and self.result_from_database(commit, backend):
             print('    Have results in database for {0} at {1}, skipping'.format(backend, commit))
+            return True
 
         self.repository.checkout(commit)
         if not self.ensure_built():
@@ -185,8 +185,8 @@ class PerformanceReport(object):
 
 
 class PerfTraceReport(PerformanceReport):
-    def __init__(self, repository, backends, trace, commit_range, resample):
-        super().__init__(repository, backends, commit_range, resample)
+    def __init__(self, repository, backends, trace, commit_range):
+        super().__init__(repository, backends, commit_range)
 
         traces_path = os.path.join(SCRIPT_PATH, 'cairo-traces')
         if not os.path.exists(traces_path):
@@ -261,13 +261,25 @@ class JSFormatter(JSONFormatter):
     def write(self, filename):
         super(JSFormatter, self).write(filename)
 
+def get_tests_from_config():
+    config = configparser.ConfigParser()
+    config.read(TEST_CONFIG_PATH)
+
+    repository = CairoRepository()
+    tests = []
+    for section in config.sections():
+        tests.append(PerfTraceReport(repository,
+                                     config[section]['Backends'].split(','),
+                                     config[section]['TracePath'],
+                                     config[section]['CommitRange']))
+    return tests
+
 def sample(args, resample=False):
-    report = PerfTraceReport(CairoRepository(),
-                             args.backends.split(','),
-                             args.test,
-                             args.commit_range,
-                             resample=resample)
-    report.run_tests()
+    for test in get_tests_from_config():
+        test.run_tests(resample)
+
+def resample(args):
+    sample(args, resample=True)
 
 def make_html(args):
     output_file = os.path.join(UI_PATH, 'index.html')
@@ -291,43 +303,14 @@ def make_html(args):
         output.write(template.substitute(scripts=scripts, graphs=graphs))
     print('Wrote {0}'.format(output_file))
 
-def resample(args):
-    sample(args, resample=True)
-
-def get_tests_from_config():
-    config = configparser.ConfigParser()
-    config.read(TEST_CONFIG_PATH)
-
-    repository = CairoRepository()
-    tests = []
-    for section in config.sections():
-        tests.append(PerfTraceReport(repository,
-                                     config[section]['Backends'].split(','),
-                                     config[section]['TracePath'],
-                                     config[section]['CommitRange'],
-                                     False))
-    return tests
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
 
     parser_sample = subparsers.add_parser('sample')
-    parser_sample.add_argument('-b', '--backends', type=str, dest='backends',
-                               help="comma separated list of backends to sample")
-    parser_sample.add_argument('-c', '--commit-range', type=str, dest='commit_range',
-                               help="commit range to sample")
-    parser_sample.add_argument('-t', '--test', type=str, dest='test',
-                               help="test to run")
     parser_sample.set_defaults(func=sample)
 
     parser_resample = subparsers.add_parser('resample')
-    parser_resample.add_argument('-b', '--backends', type=str, dest='backends',
-                                 help="comma separated list of backends to sample")
-    parser_resample.add_argument('-c', '--commit-range', type=str, dest='commit_range',
-                                 help="commit range to sample")
-    parser_resample.add_argument('-t', '--test', type=str, dest='test',
-                                 help="test to run")
     parser_resample.set_defaults(func=resample)
 
     parser_make_html = subparsers.add_parser('make-html')
