@@ -81,6 +81,10 @@ function processSamples(data)
     if (data === undefined)
         return [];
     var stats = findArrayStats(data.samples);
+    console.log(stats);
+    if (stats.mean === 0)
+        return [];
+
     return [stats.mean / (data.normalization * 1000), stats.standardDeviation];
 }
 

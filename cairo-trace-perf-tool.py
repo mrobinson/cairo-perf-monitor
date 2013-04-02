@@ -119,11 +119,11 @@ class PerformanceReport(object):
     def write_result(self, commit, backend, result):
         try:
             pickled_result = pickle.dumps(result)
-            self.database.Put(self.trace_results_key(commit, backend), pickled_result)
+            self.database.Put(self.trace_results_key(commit, backend), pickled_result, sync=True)
         except Exception as e:
             print('Couldn\'t write {0} at {1} results to database: {1}'.format(backend, commit, e))
 
-    def run_tests(self, resample):
+    def run_tests(self, resample=False, mock=False):
         if not(self.repository.working_tree_clean()):
             raise Exception("Repository does not have a clean working tree.")
 
@@ -133,13 +133,18 @@ class PerformanceReport(object):
             for i, commit_hash in enumerate(hashes):
                 print('Testing {0} ({1} left)'.format(commit_hash, len(hashes) - i))
                 for backend in self.backends:
-                    self.run_test_for_commit_and_backend(commit_hash, backend, resample)
+                    self.run_test_for_commit_and_backend(commit_hash, backend, resample, mock)
         finally:
             self.repository.checkout('master')
 
-    def run_test_for_commit_and_backend(self, commit, backend, resample):
+    def run_test_for_commit_and_backend(self, commit, backend, resample, mock):
         if not resample and self.result_from_database(commit, backend):
             print('    Have results in database for {0} at {1}, skipping'.format(backend, commit))
+            return True
+
+        if mock:
+            print('    Writing mock results...')
+            self.write_result(commit, backend, {'samples': [0], 'normalization': 1})
             return True
 
         self.repository.checkout(commit)
@@ -147,7 +152,7 @@ class PerformanceReport(object):
             print('    Build failed, no data for {0}'.format(backend))
             if resample:
                 self.remove_result_from_database(commit, backend)
-            return 
+            return
 
         print('    Running trace for {0}...'.format(backend))
         (normalization, results) = self.run_test(backend)
@@ -297,7 +302,11 @@ def sample(args):
 
 def resample(args):
     for test in get_tests_from_config(test=args.test, commit=args.commit, backends=args.backends):
-        test.run_tests(resample)
+        test.run_tests(resample=resample)
+
+def mock(args):
+    for test in get_tests_from_config(test=args.test, commit=args.commit, backends=args.backends):
+        test.run_tests(mock=mock)
 
 def make_html(args):
     output_file = os.path.join(SCRIPT_PATH, 'index.html')
@@ -328,14 +337,19 @@ if __name__ == "__main__":
     parser_sample = subparsers.add_parser('sample')
     parser_sample.set_defaults(func=sample)
 
-    parser_resample = subparsers.add_parser('resample')
-    parser_resample.add_argument('test', metavar='TEST', type=str,
+    flexible_command = argparse.ArgumentParser(add_help=False)
+    flexible_command.add_argument('test', metavar='TEST', type=str,
                                  help='a test to resample')
-    parser_resample.add_argument('--backends', '-b', type=str, default=None, dest='backends',
+    flexible_command.add_argument('--backends', '-b', type=str, default=None, dest='backends',
                                  help='backends to resample')
-    parser_resample.add_argument('--commit', '-c', type=str, default=None, dest='commit',
-                                 help='commit range or commit to resample')
+    flexible_command.add_argument('--commit', '-c', type=str, default=None, dest='commit',
+                                 help='commit range or commit')
+
+    parser_resample = subparsers.add_parser('resample', parents=[flexible_command])
     parser_resample.set_defaults(func=resample)
+
+    parser_mock = subparsers.add_parser('mock', parents=[flexible_command])
+    parser_mock.set_defaults(func=mock)
 
     parser_make_html = subparsers.add_parser('make-html')
     parser_make_html.set_defaults(func=make_html)
