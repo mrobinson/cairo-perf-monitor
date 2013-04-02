@@ -104,7 +104,7 @@ class PerformanceReport(object):
         self.repository = repository
         self.backends = backends
         self.commit_range = commit_range
-        self.database = leveldb.LevelDB(self.database_path())
+        self.database = type(self).get_database()
 
     def result_from_database(self, commit, backend):
         try:
@@ -144,7 +144,7 @@ class PerformanceReport(object):
 
         if mock:
             print('    Writing mock results...')
-            self.write_result(commit, backend, {'samples': [0], 'normalization': 1})
+            self.write_result(commit, backend, {'samples': [], 'normalization': 1})
             return True
 
         self.repository.checkout(commit)
@@ -210,8 +210,13 @@ class PerfTraceReport(PerformanceReport):
             print('Could not find trace {0}'.format(self.trace))
             sys.exit(1)
 
-    def database_path(self):
-        return PERFORMANCE_RESULTS_PATH
+    database = None
+    @classmethod
+    def get_database(cls):
+        if cls.database:
+            return cls.database
+        cls.database = leveldb.LevelDB(PERFORMANCE_RESULTS_PATH)
+        return cls.database
 
     def test_description(self):
         return os.path.basename(self.trace).replace('.trace', '')
