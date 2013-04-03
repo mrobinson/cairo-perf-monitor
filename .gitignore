@@ -9,3 +9,4 @@ tags
 .*.sw[a-p]
 cairo
 cairo-traces
+machine.ini

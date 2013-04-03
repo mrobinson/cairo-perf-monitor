@@ -3,6 +3,7 @@
 import argparse
 import configparser
 import json
+import itertools
 import leveldb
 import multiprocessing
 import os
@@ -12,12 +13,57 @@ import subprocess
 import sys
 
 from string import Template
+from itertools import product
 
 PERFORMANCE_RESULTS_PATH = "performance-results.db"
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
-TEST_CONFIG_PATH = os.path.join(SCRIPT_PATH, 'tests.ini')
+TEST_CONFIG_PATH = os.path.join(SCRIPT_PATH, 'config.ini')
 TEMPLATE_PATH = os.path.join(SCRIPT_PATH, 'index.html.template')
 REPORT_PATH = os.path.join(SCRIPT_PATH, 'reports')
+
+class Machine():
+    machine = None
+
+    @classmethod
+    def get(cls):
+        if cls.machine:
+            return cls.machine
+        cls.machine = Machine()
+        return cls.machine
+
+    def __init__(self):
+        config_file = os.path.join(SCRIPT_PATH, "machine.ini")
+        if not os.path.exists(config_file):
+            self.name = 'unknown'
+            return
+
+        config = configparser.ConfigParser()
+        config.read(config_file)
+        if not 'Machine' in config or not 'Name' in config['Machine']:
+            self.name = 'unknown'
+            return
+
+        self.name = config['Machine']['Name']
+
+class Config():
+    config = None
+
+    @classmethod
+    def get(cls):
+        if cls.config:
+            return cls.config
+        cls.config = Config()
+        return cls.config
+
+    def __init__(self):
+        self.config = configparser.ConfigParser()
+        self.config.read(TEST_CONFIG_PATH)
+
+    def tests(self):
+        return [self.config[section] for section in self.config.sections() if section != 'Machines']
+
+    def machines(self):
+        return self.config['Machines']['Known'].split(',')
 
 class CairoRepository(pygit2.Repository):
     def __init__(self):
@@ -98,28 +144,37 @@ class CairoRepository(pygit2.Repository):
         process.wait()
         return [line.split(' ')[0] for line in stdout.decode().strip().splitlines()]
 
+class TestRun(object):
+    def __init__(self, test_name, commit_hash, backend, machine=Machine.get().name):
+        self.test_name = test_name
+        self.commit_hash = commit_hash
+        self.backend = backend
+        self.machine = machine
+
+    def key(self):
+        return '{0}-{1}-{2}-{3}'.format(self.test_name, self.machine, self.backend, self.commit_hash).encode()
+
 
 class PerformanceReport(object):
-    def __init__(self, repository, backends, commit_range):
-        self.repository = repository
-        self.backends = backends
-        self.commit_range = commit_range
+    def __init__(self, *args, **kwargs):
+        self.repository = kwargs['repository']
+        self.backends = kwargs['backends']
+        self.commit_range = kwargs['commit_range']
         self.database = type(self).get_database()
 
-    def result_from_database(self, commit, backend):
+    def result_from_database(self, test_run):
         try:
-            return pickle.loads(self.database.Get(self.trace_results_key(commit, backend)))
+            return pickle.loads(self.database.Get(test_run.key()))
         except:
             return None
 
-    def remove_result_from_database(self, commit, backend):
-        self.database.Delete(self.trace_results_key(commit, backend), sync=True)
-        print('deleting {0}'.format(self.trace_results_key(commit, backend)))
+    def remove_result_from_database(self, run):
+        self.database.Delete(run.key(), sync=True)
+        print('deleting {0}'.format(run.key))
 
-    def write_result(self, commit, backend, result):
+    def write_result(self, run, result):
         try:
-            pickled_result = pickle.dumps(result)
-            self.database.Put(self.trace_results_key(commit, backend), pickled_result, sync=True)
+            self.database.Put(run.key(), pickle.dumps(result), sync=True)
         except Exception as e:
             print('Couldn\'t write {0} at {1} results to database: {1}'.format(backend, commit, e))
 
@@ -133,32 +188,33 @@ class PerformanceReport(object):
             for i, commit_hash in enumerate(hashes):
                 print('Testing {0} ({1} left)'.format(commit_hash, len(hashes) - i))
                 for backend in self.backends:
-                    self.run_test_for_commit_and_backend(commit_hash, backend, resample, mock)
+                    run = TestRun(self.test_description(), commit_hash, backend)
+                    self.run_test_for_commit_and_backend(run, resample, mock)
         finally:
             self.repository.checkout('master')
 
-    def run_test_for_commit_and_backend(self, commit, backend, resample, mock):
-        if not resample and self.result_from_database(commit, backend):
+    def run_test_for_commit_and_backend(self, run, resample, mock):
+        if not resample and self.result_from_database(run):
             print('    Have results in database for {0} at {1}, skipping'.format(backend, commit))
             return True
 
         if mock:
             print('    Writing mock results...')
-            self.write_result(commit, backend, {'samples': [], 'normalization': 1})
+            self.write_result(run, {'samples': [], 'normalization': 1})
             return True
 
-        self.repository.checkout(commit)
+        self.repository.checkout(run.commit_hash)
         if not self.ensure_built():
             print('    Build failed, no data for {0}'.format(backend))
             if resample:
-                self.remove_result_from_database(commit, backend)
+                self.remove_result_from_database(run)
             return
 
-        print('    Running trace for {0}...'.format(backend))
-        (normalization, results) = self.run_test(backend)
+        print('    Running trace for {0}...'.format(run.backend))
+        (normalization, results) = self.run_test(run.backend)
 
         print('    Writing results...')
-        self.write_result(commit, backend,
+        self.write_result(run,
                           {'samples': results,
                            'normalization': normalization})
 
@@ -173,39 +229,46 @@ class PerformanceReport(object):
         return not self.repository.failed_to_build
 
     def get_report(self):
+        # We save the iterator to a list, since we are going to iterate it twice
+        # and it shouldn't require much memory.
+        configurations = list(itertools.product(Config.get().machines(), self.backends))
+
+        def config_string(config):
+            return '{0}-{1}'.format(*config)
+
         print('Generating report for trace {0} in {1}'.format(self.trace, self.commit_range))
         report = {
             'test': self.test_description(),
             'commitRange': self.commit_range,
-            'backends': self.backends,
+            'configurations': [config_string(config) for config in configurations],
             'results': [],
         }
-
         hashes = self.repository.hashes_in_commit_range(self.commit_range)
         for i, commit_hash in enumerate(hashes):
             result = {}
             result['commit'] = commit_hash
             result['message'] = self.repository.commit_description(commit_hash)
 
-            for backend in self.backends:
-                backend_result = self.result_from_database(commit_hash, backend)
-                if backend_result:
-                    result[backend] = backend_result
+            for config in configurations:
+                run = TestRun(self.test_description(), commit_hash, config[1], config[0])
+                config_result = self.result_from_database(run)
+                if config_result:
+                    result[config_string(config)] = config_result
                 else:
-                    print('No result for {0}'.format(self.trace_results_key(commit_hash, backend)))
+                    print('No result for {0}'.format(run.key()))
             report['results'].insert(0, result)
         return report
 
 
 class PerfTraceReport(PerformanceReport):
-    def __init__(self, repository, backends, trace, commit_range):
-        super().__init__(repository, backends, commit_range)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
         traces_path = os.path.join(SCRIPT_PATH, 'cairo-traces')
         if not os.path.exists(traces_path):
             print('Could not find cairo-traces repository at {0}. Check it out there or make a symlink.'.format(traces_path))
             sys.exit(1)
-        self.trace = os.path.join(traces_path, trace)
+        self.trace = os.path.join(traces_path, kwargs['trace'])
         if not os.path.exists(self.trace):
             print('Could not find trace {0}'.format(self.trace))
             sys.exit(1)
@@ -223,9 +286,6 @@ class PerfTraceReport(PerformanceReport):
 
     def filename(self):
         return self.test_description().replace('-', '_')
-
-    def trace_results_key(self, commit, backend):
-        return '{0}-{1}-{2}'.format(self.test_description(), backend, commit).encode()
 
     def perf_trace_path(self):
         return os.path.join(self.repository.repository_path, "perf", "cairo-perf-trace")
@@ -282,23 +342,23 @@ class JSFormatter(JSONFormatter):
     def write(self, filename):
         super(JSFormatter, self).write(filename)
 
-def get_tests_from_config(test=None, commit=None, backends=None):
-    config = configparser.ConfigParser()
-    config.read(TEST_CONFIG_PATH)
-
+def get_tests_from_config(test=None, commit=None, backends=None, machine=None):
     repository = CairoRepository()
     tests = []
-    for section in config.sections():
-        if test and section != test:
+
+    if backends:
+        backends = backends.split(",")
+
+    for test_config in Config.get().tests():
+        if test and section != test_config.name:
             continue
 
-        test_commits = commit if commit else config[section]['CommitRange']
-        test_backends = backends.split(',') if backends else \
-            config[section]['Backends'].split(',')
-        tests.append(PerfTraceReport(repository,
-                                     test_backends,
-                                     config[section]['TracePath'],
-                                     test_commits))
+        test_commits = commit if commit else test_config['CommitRange']
+        test_backends = backends if backends else test_config['Backends'].split(',')
+        tests.append(PerfTraceReport(repository=repository,
+                                     backends=test_backends,
+                                     trace=test_config['TracePath'],
+                                     commit_range=test_commits))
     return tests
 
 def sample(args):
@@ -314,6 +374,8 @@ def mock(args):
         test.run_tests(mock=mock)
 
 def make_html(args):
+    #for machine in Config.get().machines():
+
     output_file = os.path.join(SCRIPT_PATH, 'index.html')
     print('Updating {0}'.format(output_file))
 
