@@ -21,16 +21,13 @@ TEST_CONFIG_PATH = os.path.join(SCRIPT_PATH, 'config.ini')
 TEMPLATE_PATH = os.path.join(SCRIPT_PATH, 'index.html.template')
 REPORT_PATH = os.path.join(SCRIPT_PATH, 'reports')
 
-class Machine():
-    machine = None
+def singleton(cls):
+    instance = cls()
+    instance.__call__ = lambda: instance
+    return instance
 
-    @classmethod
-    def get(cls):
-        if cls.machine:
-            return cls.machine
-        cls.machine = Machine()
-        return cls.machine
-
+@singleton
+class Machine(object):
     def __init__(self):
         config_file = os.path.join(SCRIPT_PATH, "machine.ini")
         if not os.path.exists(config_file):
@@ -45,16 +42,12 @@ class Machine():
 
         self.name = config['Machine']['Name']
 
-class Config():
-    config = None
+    @staticmethod
+    def known():
+        return Config.config['Machines']['Known'].split(',')
 
-    @classmethod
-    def get(cls):
-        if cls.config:
-            return cls.config
-        cls.config = Config()
-        return cls.config
-
+@singleton
+class Config(object):
     def __init__(self):
         self.config = configparser.ConfigParser()
         self.config.read(TEST_CONFIG_PATH)
@@ -62,9 +55,7 @@ class Config():
     def tests(self):
         return [self.config[section] for section in self.config.sections() if section != 'Machines']
 
-    def machines(self):
-        return self.config['Machines']['Known'].split(',')
-
+@singleton
 class CairoRepository(pygit2.Repository):
     def __init__(self):
         repository_path = os.path.join(SCRIPT_PATH, 'cairo')
@@ -145,7 +136,7 @@ class CairoRepository(pygit2.Repository):
         return [line.split(' ')[0] for line in stdout.decode().strip().splitlines()]
 
 class TestRun(object):
-    def __init__(self, test_name, commit_hash, backend, machine=Machine.get().name):
+    def __init__(self, test_name, commit_hash, backend, machine=Machine.name):
         self.test_name = test_name
         self.commit_hash = commit_hash
         self.backend = backend
@@ -157,7 +148,6 @@ class TestRun(object):
 
 class PerformanceReport(object):
     def __init__(self, *args, **kwargs):
-        self.repository = kwargs['repository']
         self.backends = kwargs['backends']
         self.commit_range = kwargs['commit_range']
         self.database = type(self).get_database()
@@ -179,19 +169,19 @@ class PerformanceReport(object):
             print('Couldn\'t write {0} at {1} results to database: {1}'.format(backend, commit, e))
 
     def run_tests(self, resample=False, mock=False):
-        if not(self.repository.working_tree_clean()):
+        if not(CairoRepository.working_tree_clean()):
             raise Exception("Repository does not have a clean working tree.")
 
         print('Running trace {0} for {1}'.format(self.trace, self.commit_range))
         try:
-            hashes = self.repository.hashes_in_commit_range(self.commit_range)
+            hashes = CairoRepository.hashes_in_commit_range(self.commit_range)
             for i, commit_hash in enumerate(hashes):
                 print('Testing {0} ({1} left)'.format(commit_hash, len(hashes) - i))
                 for backend in self.backends:
                     run = TestRun(self.test_description(), commit_hash, backend)
                     self.run_test_for_commit_and_backend(run, resample, mock)
         finally:
-            self.repository.checkout('master')
+            CairoRepository.checkout('master')
 
     def run_test_for_commit_and_backend(self, run, resample, mock):
         if not resample and self.result_from_database(run):
@@ -203,7 +193,7 @@ class PerformanceReport(object):
             self.write_result(run, {'samples': [], 'normalization': 1})
             return True
 
-        self.repository.checkout(run.commit_hash)
+        CairoRepository.checkout(run.commit_hash)
         if not self.ensure_built():
             print('    Build failed, no data for {0}'.format(backend))
             if resample:
@@ -219,19 +209,19 @@ class PerformanceReport(object):
                            'normalization': normalization})
 
     def ensure_built(self):
-        if self.repository.failed_to_build:
+        if CairoRepository.failed_to_build:
             return False
-        if self.repository.built:
+        if CairoRepository.built:
             return True
 
         print('    Building...')
-        self.repository.build()
-        return not self.repository.failed_to_build
+        CairoRepository.build()
+        return not CairoRepository.failed_to_build
 
     def get_report(self):
         # We save the iterator to a list, since we are going to iterate it twice
         # and it shouldn't require much memory.
-        configurations = list(itertools.product(Config.get().machines(), self.backends))
+        configurations = list(itertools.product(Machine.known(), self.backends))
 
         def config_string(config):
             return '{0}-{1}'.format(*config)
@@ -243,11 +233,11 @@ class PerformanceReport(object):
             'configurations': [config_string(config) for config in configurations],
             'results': [],
         }
-        hashes = self.repository.hashes_in_commit_range(self.commit_range)
+        hashes = CairoRepository.hashes_in_commit_range(self.commit_range)
         for i, commit_hash in enumerate(hashes):
             result = {}
             result['commit'] = commit_hash
-            result['message'] = self.repository.commit_description(commit_hash)
+            result['message'] = CairoRepository.commit_description(commit_hash)
 
             for config in configurations:
                 run = TestRun(self.test_description(), commit_hash, config[1], config[0])
@@ -288,7 +278,7 @@ class PerfTraceReport(PerformanceReport):
         return self.test_description().replace('-', '_')
 
     def perf_trace_path(self):
-        return os.path.join(self.repository.repository_path, "perf", "cairo-perf-trace")
+        return os.path.join(CairoRepository.repository_path, "perf", "cairo-perf-trace")
 
     def run_test(self, backend):
         env = os.environ.copy()
@@ -343,20 +333,18 @@ class JSFormatter(JSONFormatter):
         super(JSFormatter, self).write(filename)
 
 def get_tests_from_config(test=None, commit=None, backends=None, machine=None):
-    repository = CairoRepository()
     tests = []
 
     if backends:
         backends = backends.split(",")
 
-    for test_config in Config.get().tests():
+    for test_config in Config.tests():
         if test and section != test_config.name:
             continue
 
         test_commits = commit if commit else test_config['CommitRange']
         test_backends = backends if backends else test_config['Backends'].split(',')
-        tests.append(PerfTraceReport(repository=repository,
-                                     backends=test_backends,
+        tests.append(PerfTraceReport(backends=test_backends,
                                      trace=test_config['TracePath'],
                                      commit_range=test_commits))
     return tests
@@ -374,8 +362,6 @@ def mock(args):
         test.run_tests(mock=mock)
 
 def make_html(args):
-    #for machine in Config.get().machines():
-
     output_file = os.path.join(SCRIPT_PATH, 'index.html')
     print('Updating {0}'.format(output_file))
 
