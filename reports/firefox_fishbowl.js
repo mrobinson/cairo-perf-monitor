@@ -970,120 +970,440 @@ var firefox_fishbowl = {
    "commit": "5ee136b2c067c92e85f04ba0c84966f7760f4556", 
    "message": "commit 5ee136b2c067c92e85f04ba0c84966f7760f4556\nAuthor: Martin Robinson <mrobinson@igalia.com>\nDate:   Fri Mar 8 10:29:55 2013 -0800\n\n    gl: Setup operands when the vertex size changes\n    \n    Previously _cairo_gl_composite_setup_vbo was overwriting the old context\n    vertex_size, while _cairo_gl_context_setup_operand was relying on it to\n    determine if the vertex size changed. Instead of a fragile ordering of\n    statements, pass whether the vertex size changed as an argument to enforce\n    the calling order via method parameters.\n", 
    "image": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     102874343791.0, 
+     103015880477.0, 
+     102995535388.0, 
+     102997688406.0, 
+     103150725426.0, 
+     102883382172.0, 
+     102795835240.0, 
+     102849166794.0, 
+     102973000619.0, 
+     102965523767.0, 
+     102935879025.0, 
+     102754784831.0, 
+     103060473187.0, 
+     102771648583.0, 
+     102928041657.0
+    ], 
+    "normalization": 1000000.0
    }, 
    "xlib": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     34540391339.0, 
+     32970075562.0, 
+     32912804340.0, 
+     32980446809.0, 
+     32978509214.0, 
+     33848348727.0, 
+     33574994938.0, 
+     33715774938.0, 
+     33641473346.0, 
+     32929425554.0, 
+     33059689536.0, 
+     33664362325.0, 
+     33696774552.0, 
+     33017820467.0, 
+     33673290404.0
+    ], 
+    "normalization": 1000000.0
    }
   }, 
   {
    "commit": "c60e23feb16a8745eaa6d213a89f61ded5707731", 
    "message": "commit c60e23feb16a8745eaa6d213a89f61ded5707731\nAuthor: Martin Robinson <mrobinson@igalia.com>\nDate:   Wed Mar 13 17:19:19 2013 -0700\n\n    path: Fix a bug in line intersection\n    \n    Before the intersection code was not taking into account that both\n    quotients are required to be in the range (0,1) for the segments to\n    intersect or handling the case of negative numerators and denominators.\n", 
    "image": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     103425821349.0, 
+     103283247416.0, 
+     103306563486.0, 
+     103793094630.0, 
+     103072194711.0, 
+     103425032093.0, 
+     103184563135.0, 
+     103385105013.0, 
+     103335627662.0, 
+     103395567714.0, 
+     103408274940.0, 
+     103695169954.0, 
+     103353991414.0, 
+     103552401379.0, 
+     103425569354.0
+    ], 
+    "normalization": 1000000.0
    }, 
    "xlib": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     31364837469.0, 
+     33649005026.0, 
+     33718938113.0, 
+     33710583509.0, 
+     33003895704.0, 
+     33639361473.0, 
+     32989068024.0, 
+     33646883934.0, 
+     33836737285.0, 
+     33618095053.0, 
+     33680047007.0, 
+     33686094720.0, 
+     33056695495.0, 
+     33746086597.0, 
+     33734993526.0
+    ], 
+    "normalization": 1000000.0
    }
   }, 
   {
    "commit": "aadece05fb1cf80f0a1138368f4664e878a59204", 
    "message": "commit aadece05fb1cf80f0a1138368f4664e878a59204\nAuthor: Martin Robinson <mrobinson@igalia.com>\nDate:   Tue Mar 12 15:16:01 2013 -0700\n\n    stroke: Fix large line widths for fallback stroke shaper\n    \n    Fix the test case line-width-tolerance for the fallback stroke shaper.\n    Instead of drawing quads between spline points, draw triangle based on\n    the actual spline edges. This roughly follows the approach of the\n    tristrip and polygonal shapers.\n", 
    "image": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     102939424652.0, 
+     102837037854.0, 
+     103039216759.0, 
+     103085899422.0, 
+     103083142313.0, 
+     103173991227.0, 
+     102887998937.0, 
+     103174236745.0, 
+     103082377473.0, 
+     103284584812.0, 
+     103018313124.0, 
+     103119767345.0, 
+     102933117384.0, 
+     103253726473.0, 
+     103041550594.0
+    ], 
+    "normalization": 1000000.0
    }, 
    "xlib": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     33846498485.0, 
+     33681792304.0, 
+     33660766723.0, 
+     32982166672.0, 
+     33015036670.0, 
+     33725759504.0, 
+     33701571186.0, 
+     32936533121.0, 
+     33715375845.0, 
+     33007460362.0, 
+     32970690282.0, 
+     33581364554.0, 
+     32989732083.0, 
+     33633896494.0, 
+     33709003354.0
+    ], 
+    "normalization": 1000000.0
    }
   }, 
   {
    "commit": "2c2dccf5a4d298c866f7c0faed2e10c65252c168", 
    "message": "commit 2c2dccf5a4d298c866f7c0faed2e10c65252c168\nAuthor: Martin Robinson <mrobinson@igalia.com>\nDate:   Tue Mar 12 15:17:19 2013 -0700\n\n    stroke: Use round-joins near inflection points of splines\n    \n    Similar to b7bd5ae4f3da44131261711bb236cd7aa24a3ae3, but applied to the\n    fallback stroke shaper.\n", 
    "image": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     102326099319.0, 
+     102322044198.0, 
+     102275151582.0, 
+     102450708491.0, 
+     102587047296.0, 
+     102228957802.0, 
+     102435532524.0, 
+     102292784744.0, 
+     102160143313.0, 
+     102037383840.0, 
+     102116083020.0, 
+     102164301116.0, 
+     102107386154.0, 
+     102493250231.0, 
+     102261197204.0
+    ], 
+    "normalization": 1000000.0
    }, 
    "xlib": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     34379769387.0, 
+     33686173765.0, 
+     33056272832.0, 
+     33731207657.0, 
+     33527358655.0, 
+     32958238372.0, 
+     33685859346.0, 
+     33598620499.0, 
+     33067872692.0, 
+     33521868994.0, 
+     33621410341.0, 
+     33752634882.0, 
+     32929189174.0, 
+     33025238111.0, 
+     33622525508.0
+    ], 
+    "normalization": 1000000.0
    }
   }, 
   {
    "commit": "01a8bf01c6508a4fea8d40371c3049e7a2f7908a", 
    "message": "commit 01a8bf01c6508a4fea8d40371c3049e7a2f7908a\nAuthor: Chris Wilson <chris@chris-wilson.co.uk>\nDate:   Fri Mar 15 09:08:00 2013 +0000\n\n    mempool: Reduce an assert into an error return for get_buddy()\n    \n    If we ask for a buddy that is outside of our allocation that is an\n    error that should not happen with a power-of-two allocated zone...\n    However, since it has been seen in the wild, we can safely return that\n    there is no buddy rather than die in a too-late assert.\n    \n    Reported-by: Anton Eliasson <devel@antoneliasson.se>\n    Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>\n", 
    "image": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     102505555638.0, 
+     102462686211.0, 
+     102611225974.0, 
+     102381973368.0, 
+     102601754419.0, 
+     102485522705.0, 
+     102723521958.0, 
+     102516473418.0, 
+     102401339575.0, 
+     102544618831.0, 
+     102454986478.0, 
+     102401748585.0, 
+     102679965982.0, 
+     102528811650.0, 
+     102384743975.0
+    ], 
+    "normalization": 1000000.0
    }, 
    "xlib": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     34250748766.0, 
+     32976245989.0, 
+     33644458452.0, 
+     33675247742.0, 
+     33640577771.0, 
+     32932477094.0, 
+     33095813971.0, 
+     33667126063.0, 
+     33650383939.0, 
+     33103677263.0, 
+     33765525970.0, 
+     33713949032.0, 
+     33007931182.0, 
+     32999737039.0, 
+     33709948135.0
+    ], 
+    "normalization": 1000000.0
    }
   }, 
   {
    "commit": "c141615a7fa632a2435b49f3949ed1fc9962af1f", 
    "message": "commit c141615a7fa632a2435b49f3949ed1fc9962af1f\nAuthor: Marek Kasik <mkasik@redhat.com>\nDate:   Fri Mar 15 14:46:19 2013 +0100\n\n    cff-subset: Fix allocation of width arrays\n    \n    fd_default_width and fd_nominal_width\n    are arrays of doubles not arrays of ints.\n", 
    "image": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     102242794326.0, 
+     102219996349.0, 
+     102377881548.0, 
+     102603843282.0, 
+     102247617804.0, 
+     102309869931.0, 
+     102305397844.0, 
+     102386089247.0, 
+     102421033583.0, 
+     102288211333.0, 
+     102342484024.0, 
+     102269942526.0, 
+     102338990407.0, 
+     102403386240.0, 
+     102461964573.0
+    ], 
+    "normalization": 1000000.0
    }, 
    "xlib": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     31835562017.0, 
+     33736333195.0, 
+     33650978424.0, 
+     32858901152.0, 
+     33677510247.0, 
+     32971571793.0, 
+     33629406242.0, 
+     33690623282.0, 
+     33645442008.0, 
+     33046516398.0, 
+     33749987570.0, 
+     32952340538.0, 
+     33707879272.0, 
+     33722270050.0, 
+     33674786014.0
+    ], 
+    "normalization": 1000000.0
    }
   }, 
   {
    "commit": "592f5944239debfa3dacc410f675261947156baf", 
    "message": "commit 592f5944239debfa3dacc410f675261947156baf\nAuthor: Uli Schlachter <psychon@znc.in>\nDate:   Fri Mar 15 16:53:28 2013 +0100\n\n    test: Fix CAIRO_REF_DIR\n    \n    Ever since the test output was moved from test/ to test/output/, using\n    CAIRO_REF_DIR to make the test suite succeed no longer works. The test suite was\n    looking for the wrong file names.\n    \n    This patch makes this work again. However, I am not sure that this really is the\n    correct fix. It just seems to work. :-)\n    \n    Reported-by: Darxus <darxus@chaosreigns.com>\n    Signed-off-by: Uli Schlachter <psychon@znc.in>\n", 
    "image": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     102326342243.0, 
+     102658458713.0, 
+     102237581603.0, 
+     102283883688.0, 
+     102429225658.0, 
+     102329451031.0, 
+     102448492275.0, 
+     102434981532.0, 
+     102289129063.0, 
+     102222259653.0, 
+     102573067375.0, 
+     102394658855.0, 
+     102380825843.0, 
+     102365488442.0, 
+     102472079444.0
+    ], 
+    "normalization": 1000000.0
    }, 
    "xlib": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     31789378433.0, 
+     32298876842.0, 
+     32668489709.0, 
+     33623373103.0, 
+     33695762899.0, 
+     33055868204.0, 
+     33088301151.0, 
+     33819917643.0, 
+     33657501100.0, 
+     33613963157.0, 
+     33069114227.0, 
+     33674357747.0, 
+     33735594511.0, 
+     33068330336.0, 
+     33127660567.0
+    ], 
+    "normalization": 1000000.0
    }
   }, 
   {
    "commit": "0e999edff869bc08522a6a56c69efa9b5e1c33b5", 
    "message": "commit 0e999edff869bc08522a6a56c69efa9b5e1c33b5\nAuthor: Matthew Fischer <matthew.fischer@canonical.com>\nDate:   Sat Mar 9 15:42:59 2013 -0700\n\n    Adding a simple usage statement to cairo-perf-chart\n    \n    Signed-off-by: Uli Schlachter <psychon@znc.in>\n", 
    "image": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     102534861437.0, 
+     102565883052.0, 
+     102452260877.0, 
+     102361982034.0, 
+     102509539896.0, 
+     102660968888.0, 
+     102437863112.0, 
+     102433216009.0, 
+     102479789546.0, 
+     102478351963.0, 
+     102575147796.0, 
+     102476654605.0, 
+     102594433485.0, 
+     102542404449.0, 
+     102589323850.0
+    ], 
+    "normalization": 1000000.0
    }, 
    "xlib": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     31683264507.0, 
+     33053898397.0, 
+     33260190665.0, 
+     33699626175.0, 
+     33084067340.0, 
+     32948874056.0, 
+     33646039331.0, 
+     32987064777.0, 
+     33769128036.0, 
+     33128059558.0, 
+     33742431414.0, 
+     33530501055.0, 
+     33021582448.0, 
+     33184384049.0, 
+     33070076496.0
+    ], 
+    "normalization": 1000000.0
    }
   }, 
   {
    "commit": "be347acd5a198b4280f2699a1abfca241e7e610b", 
    "message": "commit be347acd5a198b4280f2699a1abfca241e7e610b\nAuthor: Matt Sealey <matt@genesi-usa.com>\nDate:   Mon Mar 11 10:24:52 2013 -0500\n\n    gitignore: negate gitignore for static pkgconfig files\n    \n    Commit 781f253 adds a rule cairo-*.*.* to .gitignore in the root dir.\n    Unfortunately this matches several src/cairo-*.pc.in files in the\n    src directory.\n    \n    The build system requires these files to be present, but the rule is\n    allowing them to be ignored. For example, when extracting a cgit\n    snapshot tarball and checking it into another git repository, these\n    files get left behind. Any accidental changes to these files will go\n    unnoticed by a 'git status' (possibly creating bad installs) and\n    any intentional changes could not be committed (git commit -a will\n    miss them, and every one will need to be forced). This is not really\n    desirable.\n    \n    We don't want to unignore *.pc.in here since there are many, many\n    autogenerated files with this name, and the cairo-*.*.* rule is in\n    general quite useful and doesn't warrant modification (although it\n    could be made a little more specific), so we just make these 4 files\n    a special case and negate the match with full filenames in src/.\n    \n    Signed-off-by: Matt Sealey <matt@genesi-usa.com>\n    Signed-off-by: Uli Schlachter <psychon@znc.in>\n", 
    "image": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     102592911315.0, 
+     102588700777.0, 
+     102608200465.0, 
+     102504986665.0, 
+     102594512579.0, 
+     102507535159.0, 
+     102703866802.0, 
+     103128333339.0, 
+     103105032810.0, 
+     103761536356.0, 
+     102805362362.0, 
+     102759028129.0, 
+     102741200669.0, 
+     103053673514.0, 
+     102530118816.0
+    ], 
+    "normalization": 1000000.0
    }, 
    "xlib": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     31842672439.0, 
+     32298425152.0, 
+     33040953465.0, 
+     32417937266.0, 
+     32319777133.0, 
+     33008771048.0, 
+     32279297758.0, 
+     32351773918.0, 
+     33151075345.0, 
+     33074823011.0, 
+     32995022263.0, 
+     32471521386.0, 
+     33078852260.0, 
+     32447486195.0, 
+     33094398755.0
+    ], 
+    "normalization": 1000000.0
    }
   }, 
   {
    "commit": "ff233fd706e62edf267bee66113e2cb35183bcd9", 
    "message": "commit ff233fd706e62edf267bee66113e2cb35183bcd9\nAuthor: Behdad Esfahbod <behdad@behdad.org>\nDate:   Mon Mar 18 14:17:29 2013 -0400\n\n    [test] Set font size\n    \n    Previously this test was working because we were not scaling bitmap\n    fonts.  We do now, so adjust test.\n", 
    "image": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     102563860073.0, 
+     102584981914.0, 
+     102552366722.0, 
+     102737286612.0, 
+     102429113230.0, 
+     102608397028.0, 
+     102535005218.0, 
+     102911177892.0, 
+     102825296605.0, 
+     102501838589.0, 
+     102596130347.0, 
+     102624649401.0, 
+     102646197532.0, 
+     102891918942.0, 
+     103093805942.0
+    ], 
+    "normalization": 1000000.0
    }, 
    "xlib": {
-    "samples": [], 
-    "normalization": 1
+    "samples": [
+     32354500453.0, 
+     32484142489.0, 
+     32530482207.0, 
+     32428002492.0, 
+     32928047668.0, 
+     32993210877.0, 
+     32935719270.0, 
+     32183915410.0, 
+     33121859310.0, 
+     33000521705.0, 
+     32945115927.0, 
+     33058332382.0, 
+     33077835254.0, 
+     32839660454.0, 
+     32955856466.0
+    ], 
+    "normalization": 1000000.0
    }
   }, 
   {
