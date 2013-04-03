@@ -146,7 +146,7 @@ class TestRun(object):
         return '{0}-{1}-{2}-{3}'.format(self.test_name, self.machine, self.backend, self.commit_hash).encode()
 
 
-class PerformanceReport(object):
+class Test(object):
     def __init__(self, *args, **kwargs):
         self.backends = kwargs['backends']
         self.commit_range = kwargs['commit_range']
@@ -250,7 +250,7 @@ class PerformanceReport(object):
         return report
 
 
-class PerfTraceReport(PerformanceReport):
+class PerfTraceTest(Test):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -344,9 +344,9 @@ def get_tests_from_config(test=None, commit=None, backends=None, machine=None):
 
         test_commits = commit if commit else test_config['CommitRange']
         test_backends = backends if backends else test_config['Backends'].split(',')
-        tests.append(PerfTraceReport(backends=test_backends,
-                                     trace=test_config['TracePath'],
-                                     commit_range=test_commits))
+        tests.append(PerfTraceTest(backends=test_backends,
+                                   trace=test_config['TracePath'],
+                                   commit_range=test_commits))
     return tests
 
 def sample(args):
