@@ -166,7 +166,7 @@ class Test(object):
         try:
             self.database.Put(run.key(), pickle.dumps(result), sync=True)
         except Exception as e:
-            print('Couldn\'t write {0} at {1} results to database: {1}'.format(backend, commit, e))
+            print('Couldn\'t write {0} at {1} results to database: {1}'.format(run.backend, run.commit_hash, e))
 
     def run_tests(self, resample=False, mock=False):
         if not(CairoRepository.working_tree_clean()):
@@ -275,7 +275,7 @@ class PerfTraceTest(Test):
         return self.test_description().replace('-', '_')
 
     def perf_trace_path(self):
-        return os.path.join(CairoRepository.repository_path, "perf", "cairo-perf-trace")
+        return os.path.join(SCRIPT_PATH, 'cairo-perf-trace')
 
     def run_test(self, backend):
         env = os.environ.copy()
@@ -292,6 +292,11 @@ class PerfTraceTest(Test):
             backend = backend.replace('-nocache', '')
 
         env['CAIRO_TEST_TARGET'] = backend
+
+        env['LD_PRELOAD'] = '{0} {1} {2}'.format(
+            os.path.join(CairoRepository.repository_path, 'src', '.libs', 'libcairo.so.2'),
+            os.path.join(CairoRepository.repository_path, 'util', 'cairo-script', '.libs', 'libcairo-script-interpreter.so.2'),
+            os.getenv('LD_PRELOAD', ''))
 
         args = [self.perf_trace_path(), '-r', self.trace]
         if cache_images:
@@ -383,8 +388,8 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers()
 
     parser_sample = subparsers.add_parser('sample')
-    parser_sample.add_argument('test', metavar='TEST', type=str, default=None,
-                                  help='a test to resample')
+    parser_sample.add_argument('test', metavar='TEST', type=str,
+                                help='a test to sample')
     parser_sample.set_defaults(func=sample)
 
     flexible_command = argparse.ArgumentParser(add_help=False)

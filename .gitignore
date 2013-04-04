@@ -9,4 +9,5 @@ tags
 .*.sw[a-p]
 cairo
 cairo-traces
+cairo-perf-trace
 machine.ini
