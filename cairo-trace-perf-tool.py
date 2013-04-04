@@ -226,7 +226,6 @@ class Test(object):
         def config_string(config):
             return '{0}-{1}'.format(*config)
 
-        print('Generating report for trace {0} in {1}'.format(self.trace, self.commit_range))
         report = {
             'test': self.test_description(),
             'commitRange': self.commit_range,
@@ -244,8 +243,6 @@ class Test(object):
                 config_result = self.result_from_database(run)
                 if config_result:
                     result[config_string(config)] = config_result
-                else:
-                    print('No result for {0}'.format(run.key()))
             report['results'].insert(0, result)
         return report
 
@@ -314,23 +311,39 @@ class PerfTraceTest(Test):
             return (float(parts[3]), [float(x) for x in parts[4:]])
         return (0, [0])
 
-class JSONFormatter(object):
-    def __init__(self, report):
-        self.report = report
+class HTMLReport(object):
+    def __init__(self, output_path):
+        self.output_path = output_path
 
-    def write(self, filename):
-        with open(os.path.join(filename), 'w') as output:
-            output.write(self.format())
+    def generate(self):
+        tests = get_tests_from_config()
+        for test in tests:
+            self.write_results_javascript(test)
 
-    def format(self):
-        return json.dumps(self.report.get_report(), indent=1)
+        html_file = os.path.join(self.output_path, 'index.html')
+        print('Writing {0}'.format(html_file))
+        template = Template(open(TEMPLATE_PATH).read())
+        with open(html_file, 'w') as output:
+            output.write(template.substitute(
+                scripts=[self.scripts_include_for_test(test) for test in tests],
+                graphs=[self.graph_code_for_test(test) for test in tests]))
 
-class JSFormatter(JSONFormatter):
-    def format(self):
-        return 'var {0} = {1};'.format(self.report.filename(),
-                                       super(JSFormatter, self).format())
-    def write(self, filename):
-        super(JSFormatter, self).write(filename)
+    @staticmethod
+    def write_results_javascript(test):
+        js_path = os.path.join(REPORT_PATH, test.filename() + '.js')
+        print('Writing {0}'.format(js_path))
+        with open(js_path, 'w') as output:
+            output.write('var {0} = {1};'.format(
+                test.filename(),
+                json.dumps(test.get_report(), indent=1)))
+
+    @staticmethod
+    def scripts_include_for_test(test):
+        return '        <script type="text/javascript" src="reports/{0}.js"></script>\n'.format(test.filename())
+
+    @staticmethod
+    def graph_code_for_test(test):
+        return '            graphFromTrace($report);\n'.format(test.filename())
 
 def get_tests_from_config(test=None, commit=None, backends=None, machine=None):
     tests = []
@@ -362,26 +375,8 @@ def mock(args):
         test.run_tests(mock=mock)
 
 def make_html(args):
-    output_file = os.path.join(SCRIPT_PATH, 'index.html')
-    print('Updating {0}'.format(output_file))
-
-    script_template = Template('        <script type="text/javascript" src="reports/$report"></script>\n')
-    graph_template = Template('            graphFromTrace($report);\n')
-
-    scripts = ''
-    graphs = ''
-    for test in get_tests_from_config():
-        js_path = os.path.join(REPORT_PATH, test.filename() + '.js')
-        print('    Writing test output to {0}'.format(js_path))
-        JSFormatter(test).write(js_path)
-
-        scripts += script_template.substitute(report=os.path.basename(js_path))
-        graphs += graph_template.substitute(report=test.filename())
-
-    template = Template(open(TEMPLATE_PATH).read())
-    with open(output_file, 'w') as output:
-        output.write(template.substitute(scripts=scripts, graphs=graphs))
-    print('Wrote {0}'.format(output_file))
+    report = HTMLReport(SCRIPT_PATH)
+    report.generate()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
