@@ -185,7 +185,7 @@ class Test(object):
 
     def run_test_for_commit_and_backend(self, run, resample, mock):
         if not resample and self.result_from_database(run):
-            print('    Have results in database for {0} at {1}, skipping'.format(backend, commit))
+            print('    Have results in database for {0} at {1}, skipping'.format(run.backend, run.commit_hash))
             return True
 
         if mock:
@@ -195,7 +195,7 @@ class Test(object):
 
         CairoRepository.checkout(run.commit_hash)
         if not self.ensure_built():
-            print('    Build failed, no data for {0}'.format(backend))
+            print('    Build failed, no data for {0}'.format(run.backend))
             if resample:
                 self.remove_result_from_database(run)
             return
@@ -352,7 +352,7 @@ def get_tests_from_config(test=None, commit=None, backends=None, machine=None):
         backends = backends.split(",")
 
     for test_config in Config.tests():
-        if test and section != test_config.name:
+        if test and test != test_config.name:
             continue
 
         test_commits = commit if commit else test_config['CommitRange']
@@ -363,7 +363,7 @@ def get_tests_from_config(test=None, commit=None, backends=None, machine=None):
     return tests
 
 def sample(args):
-    for test in get_tests_from_config():
+    for test in get_tests_from_config(test=args.test):
         test.run_tests()
 
 def resample(args):
@@ -383,6 +383,8 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers()
 
     parser_sample = subparsers.add_parser('sample')
+    parser_sample.add_argument('test', metavar='TEST', type=str, default=None,
+                                  help='a test to resample')
     parser_sample.set_defaults(func=sample)
 
     flexible_command = argparse.ArgumentParser(add_help=False)
