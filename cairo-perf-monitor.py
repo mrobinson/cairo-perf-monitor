@@ -31,8 +31,8 @@ class Machine(object):
     def __init__(self):
         config_file = os.path.join(SCRIPT_PATH, "machine.ini")
         if not os.path.exists(config_file):
-            self.name = 'unknown'
-            return
+            print("Need to create a machine.ini file.")
+            sys.exit(1)
 
         config = configparser.ConfigParser()
         config.read(config_file)
