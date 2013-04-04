@@ -88,7 +88,7 @@ function processSamples(data)
     return [stats.mean / (data.normalization * 1000), stats.standardDeviation];
 }
 
-function makeGraphElement(backends)
+function makeGraphElement(configurations)
 {
     var element = document.createElement('div');
     element.className = "graphandcommit"
@@ -96,10 +96,10 @@ function makeGraphElement(backends)
     var graphHTML = '<div class="graph">' +
                         '<div></div>' + // The actual graph div.
                         '<div>';
-    for (var i = 0; i < backends.length; i++) {
+    for (var i = 0; i < configurations.length; i++) {
         graphHTML += '<label>';
         graphHTML +=    '<input type="checkbox" checked onClick="setSeriesVisibility(this, ' + i + ');">';
-        graphHTML +=    backends[i];
+        graphHTML +=    configurations[i];
         graphHTML += '</label>';
     }
     graphHTML += '</div></div>' +
@@ -108,15 +108,15 @@ function makeGraphElement(backends)
     return element;
 }
 
-function seriesFromData(results, backends)
+function seriesFromData(results, configurations)
 {
     var series = [];
 
     for (var i = 0; i < results.length; i++) {
         var commit = results[i];
         var newSeries = [i];
-        for (var backendIndex = 0; backendIndex < backends.length; backendIndex++) {
-            var backend = backends[backendIndex];
+        for (var configIndex = 0; configIndex < configurations.length; configIndex++) {
+            var backend = configurations[configIndex];
             newSeries.push(processSamples(commit[backend]));
         }
 
@@ -135,18 +135,18 @@ function setSeriesVisibility(checkbox, series)
 function graphFromTrace(data)
 {
     var results = data['results'];
-    var backends = data['backends'];
+    var configurations = data['configurations'];
 
-    var element = makeGraphElement(backends)
+    var element = makeGraphElement(configurations)
     document.body.appendChild(element);
 
     var graph = new Dygraph(
         element.childNodes[0].childNodes[0],
-        seriesFromData(results, backends),
+        seriesFromData(results, configurations),
         {
             title: data['test'] + ' (' + data['commitRange'] + ')',
             errorBars: true,
-            labels: ['commit'].concat(backends),
+            labels: ['commit'].concat(configurations),
             highlightCallback: function(e, x, points, row) {
                 element.childNodes[1].innerText = results[row].message;
             }

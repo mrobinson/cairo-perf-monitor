@@ -325,8 +325,8 @@ class HTMLReport(object):
         template = Template(open(TEMPLATE_PATH).read())
         with open(html_file, 'w') as output:
             output.write(template.substitute(
-                scripts=[self.scripts_include_for_test(test) for test in tests],
-                graphs=[self.graph_code_for_test(test) for test in tests]))
+                scripts="\n".join([self.scripts_include_for_test(test) for test in tests]),
+                graphs="\n".join([self.graph_code_for_test(test) for test in tests])))
 
     @staticmethod
     def write_results_javascript(test):
@@ -339,11 +339,11 @@ class HTMLReport(object):
 
     @staticmethod
     def scripts_include_for_test(test):
-        return '        <script type="text/javascript" src="reports/{0}.js"></script>\n'.format(test.filename())
+        return '        <script type="text/javascript" src="reports/{0}.js"></script>'.format(test.filename())
 
     @staticmethod
     def graph_code_for_test(test):
-        return '            graphFromTrace($report);\n'.format(test.filename())
+        return '            graphFromTrace({0});'.format(test.filename())
 
 def get_tests_from_config(test=None, commit=None, backends=None, machine=None):
     tests = []
