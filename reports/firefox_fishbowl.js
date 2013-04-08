@@ -2,42 +2,6 @@ var firefox_fishbowl = {
  "test": "firefox-fishbowl", 
  "results": [
   {
-   "commit": "a942938e90a219a0b88153f9fa96c606ce644ef1", 
-   "message": "commit a942938e90a219a0b88153f9fa96c606ce644ef1\nAuthor: Chris Wilson <chris@chris-wilson.co.uk>\nDate:   Wed Jan 9 00:36:13 2013 +0000\n\n    scaled-font: Fix use after free when clearing the glyph cache\n    \n    Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>\n", 
-   "nvidia-xlib": {
-    "samples": [], 
-    "normalization": 1
-   }, 
-   "nvidia-image": {
-    "samples": [], 
-    "normalization": 1
-   }
-  }, 
-  {
-   "commit": "14720cd0dbc325a2140fbd5b2a7ce4b257ae5f5e", 
-   "message": "commit 14720cd0dbc325a2140fbd5b2a7ce4b257ae5f5e\nAuthor: Chris Wilson <chris@chris-wilson.co.uk>\nDate:   Wed Jan 9 12:11:25 2013 +0000\n\n    gstate: Use the polygon intermediate for geometry queries\n    \n    Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>\n", 
-   "nvidia-xlib": {
-    "samples": [], 
-    "normalization": 1
-   }, 
-   "nvidia-image": {
-    "samples": [], 
-    "normalization": 1
-   }
-  }, 
-  {
-   "commit": "351a9e756d0863ae7408c6d43a622620daa0c354", 
-   "message": "commit 351a9e756d0863ae7408c6d43a622620daa0c354\nAuthor: Chris Wilson <chris@chris-wilson.co.uk>\nDate:   Wed Jan 9 12:31:10 2013 +0000\n\n    stroke: Flip the dev slope as well for computing the cusp on a degeneracy\n    \n    Otherwise, the join think it starts and end in exactly the same\n    direction and elimiates the round capping.\n    \n    Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>\n", 
-   "nvidia-xlib": {
-    "samples": [], 
-    "normalization": 1
-   }, 
-   "nvidia-image": {
-    "samples": [], 
-    "normalization": 1
-   }
-  }, 
-  {
    "commit": "dd20c1f4d6419238bbb37fb93a48986f83c6e6c2", 
    "message": "commit dd20c1f4d6419238bbb37fb93a48986f83c6e6c2\nAuthor: Chris Wilson <chris@chris-wilson.co.uk>\nDate:   Wed Jan 9 12:38:09 2013 +0000\n\n    xlib: map-to-image requires an extents\n    \n    Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>\n", 
    "nvidia-xlib": {
@@ -1159,26 +1123,6 @@ var firefox_fishbowl = {
      33709948135.0
     ], 
     "normalization": 1000000.0
-   }, 
-   "nvidia-image": {
-    "samples": [
-     102505555638.0, 
-     102462686211.0, 
-     102611225974.0, 
-     102381973368.0, 
-     102601754419.0, 
-     102485522705.0, 
-     102723521958.0, 
-     102516473418.0, 
-     102401339575.0, 
-     102544618831.0, 
-     102454986478.0, 
-     102401748585.0, 
-     102679965982.0, 
-     102528811650.0, 
-     102384743975.0
-    ], 
-    "normalization": 1000000.0
    }
   }, 
   {
@@ -1798,55 +1742,31 @@ var firefox_fishbowl = {
    }
   }, 
   {
-   "commit": "d35e5e2bc75ddf2046c91dc0b3f40d406bab8850", 
-   "message": "commit d35e5e2bc75ddf2046c91dc0b3f40d406bab8850\nAuthor: Martin Robinson <mrobinson@igalia.com>\nDate:   Fri Mar 29 11:09:48 2013 -0700\n\n    boilerplate/gl: Disable thread awareness\n    \n    This dramatically speeds up testing on NVidia and actually makes it\n    possible to run traces within a reasonable amount of time.\n    \n    cairo-perf-trace results for:\n    NVIDIA Corporation GeForce GTS 250/PCIe/SSE2 3.3.0 NVIDIA 310.14\n    \n    Before:\n    test              min(s)  median(s) stddev. count\n    gvim              30.924  31.251    0.72%   5/6\n    firefox-fishbowl  168.751 201.017   12.46%  8/8\n    (exited early)\n    \n    After:\n    test              min(s)  median(s) stddev. count\n    gvim              1.294   1.325     1.79%   6/6\n    firefox-fishbowl  18.540  19.104    1.54%   6/6\n", 
-   "nvidia-xlib": {
-    "samples": [
-     29183892596.0, 
-     28539699763.0, 
-     28963336368.0, 
-     28594544856.0, 
-     29074901987.0, 
-     28711024089.0, 
-     29561721834.0, 
-     28842369874.0, 
-     28784264483.0, 
-     28886915266.0, 
-     28796682502.0, 
-     28734458275.0, 
-     28755330418.0, 
-     28905383677.0, 
-     29037335131.0
-    ], 
-    "normalization": 1000000.0
-   }, 
-   "nvidia-image": {
-    "samples": [
-     102952288341.0, 
-     102704630011.0, 
-     102744539002.0, 
-     102814363940.0, 
-     102733342757.0, 
-     102958653029.0, 
-     102706610311.0, 
-     102764021420.0, 
-     102827587029.0, 
-     102776773942.0, 
-     102894320262.0, 
-     103073985354.0, 
-     102911276104.0, 
-     102854597427.0, 
-     102908635071.0
-    ], 
-    "normalization": 1000000.0
-   }
+   "commit": "0446fae26d35dc4e31aadc498f0f9b48b21d2c45", 
+   "message": "commit 0446fae26d35dc4e31aadc498f0f9b48b21d2c45\nAuthor: Chris Wilson <chris@chris-wilson.co.uk>\nDate:   Sat Mar 23 11:19:14 2013 +0000\n\n    perf: Iteratively prune outliers\n    \n    Signed-off-by: Chris Wilson <chris@chris-wilson.co.uk>\n"
+  }, 
+  {
+   "commit": "e66e9ac12e3e11af76f14e8de3cfee72d4299864", 
+   "message": "commit e66e9ac12e3e11af76f14e8de3cfee72d4299864\nAuthor: Marc-Andr\u00e9 Lureau <marcandre.lureau@gmail.com>\nDate:   Tue Apr 2 00:32:56 2013 +0200\n\n    win32: fix corrupted drawing\n    \n    Fix src bitmap coordinates, which origin is bottom-left. This is\n    apparently a bug in StretchDIBits(), according to some comments on\n    MSDN API documentation.\n    \n    The backend used to have this coordinate change in the past:\n    \n                if (!StretchDIBits (dst->dc,\n                                    /* dst x,y,w,h */\n                                    dst_r.x, dst_r.y + dst_r.height - 1,\n                                    dst_r.width, - (int) dst_r.height,\n                                    /* src x,y,w,h */\n                                    src_r.x, src_extents.height - src_r.y + 1,\n                                    src_r.width, - (int) src_r.height,\n                                    src_image->data,\n                                    &bi,\n                                    DIB_RGB_COLORS,\n                                    SRCCOPY))\n    \n    https://bugs.freedesktop.org/show_bug.cgi?id=61876\n"
+  }, 
+  {
+   "commit": "b00b9e82ab728eaf3b87dd1113387d8e8df0d7e3", 
+   "message": "commit b00b9e82ab728eaf3b87dd1113387d8e8df0d7e3\nAuthor: Martin Robinson <mrobinson@igalia.com>\nDate:   Thu Apr 4 12:03:19 2013 -0700\n\n    boilerplate: Add a mode for running threaded perf tests\n    \n    This is useful because the GL backend runs much faster on some drivers\n    when thread awareness is disabled.\n"
+  }, 
+  {
+   "commit": "f6efecdfefa161c68fc5bf193a6487fc1a5047d5", 
+   "message": "commit f6efecdfefa161c68fc5bf193a6487fc1a5047d5\nAuthor: Martin Robinson <mrobinson@igalia.com>\nDate:   Fri Mar 29 11:09:48 2013 -0700\n\n    boilerplate/gl: Disable thread awareness\n    \n    This dramatically speeds up testing on NVidia and actually makes it\n    possible to run traces within a reasonable amount of time.\n    \n    cairo-perf-trace results for:\n    NVIDIA Corporation GeForce GTS 250/PCIe/SSE2 3.3.0 NVIDIA 310.14\n    \n    Before:\n    test              min(s)  median(s) stddev. count\n    gvim              30.924  31.251    0.72%   5/6\n    firefox-fishbowl  168.751 201.017   12.46%  8/8\n    (exited early)\n    \n    After:\n    test              min(s)  median(s) stddev. count\n    gvim              1.294   1.325     1.79%   6/6\n    firefox-fishbowl  18.540  19.104    1.54%   6/6\n"
   }
  ], 
  "commitRange": "HEAD~100..", 
  "configurations": [
   "intel-xlib", 
   "intel-image", 
+  "intel-gl", 
+  "intel-gl-msaa", 
   "nvidia-xlib", 
-  "nvidia-image"
+  "nvidia-image", 
+  "nvidia-gl", 
+  "nvidia-gl-msaa"
  ]
 };
