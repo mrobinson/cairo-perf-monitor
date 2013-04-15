@@ -163,9 +163,10 @@ class Test(object):
 
     @classmethod
     def write_database(cls):
-        assert(self.database)
+        assert(cls.database)
+        output = json.dumps(cls.database, sort_keys=True, indent=2)
         with open(PERFORMANCE_RESULTS_PATH, 'w') as database_file:
-            database_file.write(json.dumps(cls.database, sort_keys=True, indent=2))
+            database_file.write(output)
 
     def result_from_database(self, test_run):
         key = test_run.key()
@@ -174,12 +175,13 @@ class Test(object):
         return self.database[key]
 
     def remove_result_from_database(self, run):
-        print('deleting {0}'.format(run.key))
-        del self.database[run.key()]
+        key = test_run.key()
+        print('deleting {0}'.format(key))
+        del self.database[key]
         self.write_database()
 
     def write_result(self, run, result):
-        self.database[run.key] = result
+        self.database[run.key()] = result
         self.write_database()
 
     def run_tests(self, resample=False, mock=False):
@@ -204,7 +206,7 @@ class Test(object):
 
         if mock:
             print('    Writing mock results...')
-            self.write_result(run, {'samples': [], 'normalization': 1})
+            self.write_result(run, [])
             return True
 
         CairoRepository.checkout(run.commit_hash)
@@ -215,12 +217,10 @@ class Test(object):
             return
 
         print('    Running trace for {0}...'.format(run.backend))
-        (normalization, results) = self.run_test(run.backend)
+        results = self.run_test(run.backend)
 
         print('    Writing results...')
-        self.write_result(run,
-                          {'samples': results,
-                           'normalization': normalization})
+        self.write_result(run, results)
 
     def ensure_built(self):
         if CairoRepository.failed_to_build:
@@ -318,9 +318,12 @@ class PerfTraceTest(Test):
         for line in output.splitlines():
             if not line.startswith('[*]'):
                continue
+
             parts = line.split(' ')
-            return (float(parts[3]), [float(x) for x in parts[4:]])
-        return (0, [0])
+            normalization = float(parts[3]) * 1000
+            return [(float(x) / normalization) for x in parts[4:]]
+
+        return [0]
 
 class CanvasMicroTest(Test):
     def __init__(self, *args, **kwargs):
@@ -361,8 +364,7 @@ class CanvasMicroTest(Test):
 
     @staticmethod
     def parse_perf_tool_output(output):
-        return (1, [float(x) for x in output.split(',')])
-
+        return [float(x) for x in output.split(',')]
 
 
 class HTMLReport(object):
