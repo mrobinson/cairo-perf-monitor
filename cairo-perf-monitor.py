@@ -4,7 +4,6 @@ import argparse
 import configparser
 import json
 import itertools
-import leveldb
 import multiprocessing
 import os
 import pickle
@@ -15,7 +14,7 @@ import sys
 from string import Template
 from itertools import product
 
-PERFORMANCE_RESULTS_PATH = "performance-results.db"
+PERFORMANCE_RESULTS_PATH = "performance-results.js"
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
 TEST_CONFIG_PATH = os.path.join(SCRIPT_PATH, 'config.ini')
 TEMPLATE_PATH = os.path.join(SCRIPT_PATH, 'index.html.template')
@@ -143,7 +142,7 @@ class TestRun(object):
         self.machine = machine
 
     def key(self):
-        return '{0}-{1}-{2}-{3}'.format(self.test_name, self.machine, self.backend, self.commit_hash).encode()
+        return '{0}-{1}-{2}-{3}'.format(self.test_name, self.machine, self.backend, self.commit_hash)
 
 
 class Test(object):
@@ -157,24 +156,31 @@ class Test(object):
     def get_database(cls):
         if cls.database:
             return cls.database
-        cls.database = leveldb.LevelDB(PERFORMANCE_RESULTS_PATH)
+
+        with open(PERFORMANCE_RESULTS_PATH) as database_file:
+            cls.database = json.loads(database_file.read())
         return cls.database
 
+    @classmethod
+    def write_database(cls):
+        assert(self.database)
+        with open(PERFORMANCE_RESULTS_PATH, 'w') as database_file:
+            database_file.write(json.dumps(cls.database, sort_keys=True, indent=2))
+
     def result_from_database(self, test_run):
-        try:
-            return pickle.loads(self.database.Get(test_run.key()))
-        except:
+        key = test_run.key()
+        if not key in self.database:
             return None
+        return self.database[key]
 
     def remove_result_from_database(self, run):
-        self.database.Delete(run.key(), sync=True)
         print('deleting {0}'.format(run.key))
+        del self.database[run.key()]
+        self.write_database()
 
     def write_result(self, run, result):
-        try:
-            self.database.Put(run.key(), pickle.dumps(result), sync=True)
-        except Exception as e:
-            print('Couldn\'t write {0} at {1} results to database: {1}'.format(run.backend, run.commit_hash, e))
+        self.database[run.key] = result
+        self.write_database()
 
     def run_tests(self, resample=False, mock=False):
         if not(CairoRepository.working_tree_clean()):
