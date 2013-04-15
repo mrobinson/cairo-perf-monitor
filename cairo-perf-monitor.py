@@ -152,6 +152,14 @@ class Test(object):
         self.commit_range = kwargs['commit_range']
         self.database = type(self).get_database()
 
+    database = None
+    @classmethod
+    def get_database(cls):
+        if cls.database:
+            return cls.database
+        cls.database = leveldb.LevelDB(PERFORMANCE_RESULTS_PATH)
+        return cls.database
+
     def result_from_database(self, test_run):
         try:
             return pickle.loads(self.database.Get(test_run.key()))
@@ -172,7 +180,7 @@ class Test(object):
         if not(CairoRepository.working_tree_clean()):
             raise Exception("Repository does not have a clean working tree.")
 
-        print('Running trace {0} for {1}'.format(self.trace, self.commit_range))
+        print('Running {0} for {1}'.format(self.test_description(), self.commit_range))
         try:
             hashes = CairoRepository.hashes_in_commit_range(self.commit_range)
             for i, commit_hash in enumerate(hashes):
@@ -260,14 +268,6 @@ class PerfTraceTest(Test):
             print('Could not find trace {0}'.format(self.trace))
             sys.exit(1)
 
-    database = None
-    @classmethod
-    def get_database(cls):
-        if cls.database:
-            return cls.database
-        cls.database = leveldb.LevelDB(PERFORMANCE_RESULTS_PATH)
-        return cls.database
-
     def test_description(self):
         return os.path.basename(self.trace).replace('.trace', '')
 
@@ -316,6 +316,49 @@ class PerfTraceTest(Test):
             return (float(parts[3]), [float(x) for x in parts[4:]])
         return (0, [0])
 
+class CanvasMicroTest(Test):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        micro_tests_path = os.path.join(SCRIPT_PATH, 'canvas-micro-tests')
+        self.harness_path = os.path.join(micro_tests_path, 'harness')
+        self.test_path = os.path.join(micro_tests_path, kwargs['test'])
+        if not os.path.exists(self.test_path):
+            print('Could not find canvas micro test: {0}'.format(self.test))
+            sys.exit(1)
+
+    def test_description(self):
+        return os.path.basename(self.test_path).replace('.js', '-micro')
+
+    def filename(self):
+        return self.test_description().replace('-', '_')
+
+    def run_test(self, backend):
+        env = os.environ.copy()
+
+        msaa = '-msaa' in backend
+        if msaa:
+            backend = backend.replace('-msaa', '')
+            env['CAIRO_GL_COMPOSITOR'] = 'msaa'
+        else:
+            env['CAIRO_GL_COMPOSITOR'] = 'foo'
+
+        env['LD_PRELOAD'] = '{0} {1} {2}'.format(
+            os.path.join(CairoRepository.repository_path, 'src', '.libs', 'libcairo.so.2'),
+            os.path.join(CairoRepository.repository_path, 'util', 'cairo-script', '.libs', 'libcairo-script-interpreter.so.2'),
+            os.getenv('LD_PRELOAD', ''))
+
+        process = subprocess.Popen([self.harness_path, self.test_path], stdout=subprocess.PIPE, env=env)
+        (stdout, stderr) = process.communicate()
+        process.wait()
+        return self.parse_perf_tool_output(str(stdout, encoding='utf8'))
+
+    @staticmethod
+    def parse_perf_tool_output(output):
+        return (1, [float(x) for x in output.split(',')])
+
+
+
 class HTMLReport(object):
     def __init__(self, output_path):
         self.output_path = output_path
@@ -362,9 +405,14 @@ def get_tests_from_config(test=None, commit=None, backends=None, machine=None):
 
         test_commits = commit if commit else test_config['CommitRange']
         test_backends = backends if backends else test_config['Backends'].split(',')
-        tests.append(PerfTraceTest(backends=test_backends,
-                                   trace=test_config['TracePath'],
-                                   commit_range=test_commits))
+        if 'TracePath' in test_config:
+            tests.append(PerfTraceTest(backends=test_backends,
+                                       trace=test_config['TracePath'],
+                                       commit_range=test_commits))
+        elif 'MicroTest' in test_config:
+            tests.append(CanvasMicroTest(backends=test_backends,
+                                         test=test_config['MicroTest'],
+                                         commit_range=test_commits))
     return tests
 
 def sample(args):
