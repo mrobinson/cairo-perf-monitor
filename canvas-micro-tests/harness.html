@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+
+    <style>
+        body {
+            margin: 0px;
+            border: 0px;
+        }
+    </style>
+
+    <script>
+        function getTestContext(iterations) {
+            var canvas = document.getElementById('canvas');
+            return { iterations: iterations,
+                     count: 0,
+                     context: canvas.getContext('2d'),
+                     width: parseInt(canvas.width),
+                     height: parseInt(canvas.height) };
+        }
+
+        function getRandomColor() {
+            return Math.floor(Math.random()*0xFFFFFF).toString(16);
+        }
+
+        function runTests() {
+            var testIterations = 1000;
+            var start = (new Date).getTime();
+            var context = getTestContext(testIterations);
+
+            var testInterval = null;
+            setTimeout(function() {
+                var end = (new Date).getTime();
+                clearInterval(testInterval);
+
+                // Hacky, hack, but it seems that WebKit2 is still limited to what can be injected.
+                window.location.hash = "#" + (context.count * testIterations) / (end - start);
+            }, 3000);
+
+            testInterval = setInterval(function() {
+                runTest(context);
+            }, 1);
+
+        }
+    </script>
+  </head>
+
+  <body>
+      <canvas id="canvas" width="480px" height="480px" style="background-color:black">
+      </canvas>
+    </div>
+  </body>
+
+</html>
+
