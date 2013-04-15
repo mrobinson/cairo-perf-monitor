@@ -416,7 +416,7 @@ def get_tests_from_config(test=None, commit=None, backends=None, machine=None):
     return tests
 
 def sample(args):
-    for test in get_tests_from_config(test=args.test):
+    for test in get_tests_from_config(test=args.test, commit=args.commit, backends=args.backends):
         test.run_tests()
 
 def resample(args):
@@ -435,18 +435,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
 
-    parser_sample = subparsers.add_parser('sample')
-    parser_sample.add_argument('test', metavar='TEST', type=str,
-                                help='a test to sample')
-    parser_sample.set_defaults(func=sample)
-
     flexible_command = argparse.ArgumentParser(add_help=False)
     flexible_command.add_argument('test', metavar='TEST', type=str,
-                                 help='a test to resample')
+                                  help='a test to resample', default=None)
     flexible_command.add_argument('--backends', '-b', type=str, default=None, dest='backends',
-                                 help='backends to resample')
+                                  help='backends to resample')
     flexible_command.add_argument('--commit', '-c', type=str, default=None, dest='commit',
-                                 help='commit range or commit')
+                                  help='commit range or commit')
+
+    parser_sample = subparsers.add_parser('sample', parents=[flexible_command])
+    parser_sample.set_defaults(func=sample)
 
     parser_resample = subparsers.add_parser('resample', parents=[flexible_command])
     parser_resample.set_defaults(func=resample)
