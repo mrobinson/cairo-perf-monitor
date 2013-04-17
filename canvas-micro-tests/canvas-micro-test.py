@@ -31,6 +31,9 @@ if __name__ == '__main__':
     web_view = WebKit2.WebView()
     window.add(web_view)
 
+    if len(sys.argv) > 2 and sys.argv[2] == '-gl':
+        web_view.get_settings().set_enable_accelerated_2d_canvas(True)
+
     web_view.connect('load-changed', inject_javascript)
     web_view.connect('notify::uri', location_changed)
 

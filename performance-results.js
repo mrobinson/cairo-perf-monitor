@@ -14448,5 +14448,14 @@
     21.823324872, 
     21.502864456, 
     21.732773773
+  ], 
+  "lines-micro-nvidia-gl-a64ce09715162c57d6e4b6a460d426af1d443cdc": [
+    19.016393442622952
+  ], 
+  "lines-micro-nvidia-gl-msaa-a64ce09715162c57d6e4b6a460d426af1d443cdc": [
+    56.54761904761905
+  ], 
+  "lines-micro-nvidia-image-a64ce09715162c57d6e4b6a460d426af1d443cdc": [
+    32.40589198036007
   ]
 }

@@ -344,20 +344,21 @@ class CanvasMicroTest(Test):
 
     def run_test(self, backend):
         env = os.environ.copy()
+        args = [self.harness_path, self.test_path]
 
-        msaa = '-msaa' in backend
-        if msaa:
-            backend = backend.replace('-msaa', '')
-            env['CAIRO_GL_COMPOSITOR'] = 'msaa'
-        else:
+        # We only support two backends when running the canvas performance
+        # tests at the moment. The canvas test harness takes care of preloading
+        # the cairo library.
+        if backend == 'gl':
             env['CAIRO_GL_COMPOSITOR'] = 'foo'
+            args.append('-gl')
+        elif backend == 'gl-msaa':
+            env['CAIRO_GL_COMPOSITOR'] = 'msaa'
+            args.append('-gl')
+        elif backend != 'image':
+            return [0]
 
-        env['LD_PRELOAD'] = '{0} {1} {2}'.format(
-            os.path.join(CairoRepository.repository_path, 'src', '.libs', 'libcairo.so.2'),
-            os.path.join(CairoRepository.repository_path, 'util', 'cairo-script', '.libs', 'libcairo-script-interpreter.so.2'),
-            os.getenv('LD_PRELOAD', ''))
-
-        process = subprocess.Popen([self.harness_path, self.test_path], stdout=subprocess.PIPE, env=env)
+        process = subprocess.Popen(args, stdout=subprocess.PIPE, env=env)
         (stdout, stderr) = process.communicate()
         process.wait()
         return self.parse_perf_tool_output(str(stdout, encoding='utf8'))
