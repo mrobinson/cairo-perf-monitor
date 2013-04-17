@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+import os.path
+import subprocess
+import sys
+
+# This prevents trying to load the Ubuntu overlay scrollbar module, which may
+# interact poorly with jhbuild environments.
+os.putenv('GTK_MODULES', '')
+os.putenv('GSETTINGS_BACKEND', 'memory')
+
+script_directory = os.path.dirname(os.path.realpath(__file__))
+webkit_path = os.path.abspath(os.path.join(script_directory, '..', 'webkit'))
+if os.path.exists(webkit_path):
+    os.putenv('LD_PRELOAD', os.path.join(webkit_path, '.libs', 'libwebkit2gtk-3.0.so'))
+    os.putenv('LD_LIBRARY_PATH', os.path.join(webkit_path, '.libs'))
+    os.putenv('WEBKIT_INJECTED_BUNDLE_PATH', os.path.join(webkit_path, '.libs'))
+    os.putenv('GI_TYPELIB_PATH', webkit_path)
+    os.putenv('WEBKIT_EXEC_PATH', os.path.join(webkit_path, 'Programs'))
+
+process = subprocess.Popen([os.path.join(script_directory, 'canvas-micro-test.py')] + sys.argv[1:])
+process.wait()

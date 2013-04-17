@@ -4,16 +4,10 @@ import os
 import os.path
 import sys
 
-# we need to do this before booting up GIR. This is motivated
-# by Ubuntu inserting the overlay scrollbar module which isn't
-# available in JHBuild environments.
-os.putenv('GTK_MODULES', '')
-
 from gi.repository import GLib
 from gi.repository import Gtk
 from gi.repository import WebKit2
 from urllib.parse import urlparse
-
 
 def location_changed(*args):
     uri = web_view.get_uri()

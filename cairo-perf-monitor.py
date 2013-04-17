@@ -330,7 +330,7 @@ class CanvasMicroTest(Test):
         super().__init__(*args, **kwargs)
 
         micro_tests_path = os.path.join(SCRIPT_PATH, 'canvas-micro-tests')
-        self.harness_path = os.path.join(micro_tests_path, 'harness')
+        self.harness_path = os.path.join(micro_tests_path, 'canvas-micro-test')
         self.test_path = os.path.join(micro_tests_path, kwargs['test'])
         if not os.path.exists(self.test_path):
             print('Could not find canvas micro test: {0}'.format(self.test))
