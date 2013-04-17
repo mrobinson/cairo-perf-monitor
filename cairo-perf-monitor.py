@@ -365,7 +365,7 @@ class CanvasMicroTest(Test):
 
     @staticmethod
     def parse_perf_tool_output(output):
-        return [float(x) for x in output.split(',')]
+        return [float(x) for x in output.splitlines()]
 
 
 class HTMLReport(object):

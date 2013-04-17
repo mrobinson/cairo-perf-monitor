@@ -9,13 +9,20 @@ from gi.repository import Gtk
 from gi.repository import WebKit2
 from urllib.parse import urlparse
 
+runs = 3
 def location_changed(*args):
+    global runs
+
     uri = web_view.get_uri()
     if not '#' in uri:
         return
 
     print(urlparse(uri).fragment)
-    sys.exit(0)
+    runs -= 1
+    if runs == 0:
+        sys.exit(0)
+    else:
+        web_view.run_javascript('runTests();', None, None, None)
 
 def inject_javascript(web_view, load_event):
     if load_event != WebKit2.LoadEvent.FINISHED:
