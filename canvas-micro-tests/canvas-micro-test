@@ -18,9 +18,9 @@ if os.path.exists(webkit_path):
         os.path.join(webkit_path, '.libs', 'libwebkit2gtk-3.0.so'),
         os.path.join(cairo_path, 'src', '.libs', 'libcairo.so.2'),
         os.path.join(cairo_path, 'util', 'cairo-script', '.libs', 'libcairo-script-interpreter.so.2')))
-    os.putenv('LD_LIBRARY_PATH', os.path.join(webkit_path, '.libs'))
+    os.putenv('LD_LIBRARY_PATH', "{0}:{1}".format(os.path.join(webkit_path, '.libs'), os.getenv('LD_LIBRARY_PATH', '')))
     os.putenv('WEBKIT_INJECTED_BUNDLE_PATH', os.path.join(webkit_path, '.libs'))
-    os.putenv('GI_TYPELIB_PATH', webkit_path)
+    os.putenv('GI_TYPELIB_PATH', "{0}:{1}".format(webkit_path, os.getenv('GI_TYPELIB_PATH')))
     os.putenv('WEBKIT_EXEC_PATH', os.path.join(webkit_path, 'Programs'))
 
 process = subprocess.Popen([os.path.join(script_directory, 'canvas-micro-test.py')] + sys.argv[1:])
